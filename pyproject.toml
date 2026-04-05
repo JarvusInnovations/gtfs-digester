@@ -20,10 +20,14 @@ classifiers = [
 
 dependencies = [
     "blake3>=1.0.8",
+    "click>=8.3.2",
     "fsspec>=2026.3.0",
     "gcsfs>=2026.3.0",
     "pyarrow>=23.0.1",
 ]
+
+[project.scripts]
+gtfs-digester = "gtfs_digester.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/JarvusInnovations/gtfs-digester"
