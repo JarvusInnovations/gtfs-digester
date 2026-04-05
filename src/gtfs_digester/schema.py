@@ -1,8 +1,8 @@
 """GTFS schema definitions: primary keys, column order, required columns, numeric sort columns.
 
-Covers all files from the GTFS Schedule specification. Unknown files are handled
-by the archive layer without a schema definition — they are preserved and
-fingerprinted using lexicographic row sorting.
+Covers all files from the GTFS Schedule specification (revised March 2026).
+Unknown files are handled by the archive layer without a schema definition —
+they are preserved and fingerprinted using lexicographic row sorting.
 """
 
 from __future__ import annotations
@@ -55,6 +55,7 @@ AGENCY = FileSchema(
         "agency_phone",
         "agency_fare_url",
         "agency_email",
+        "cemv_support",
     ],
     primary_key=["agency_id"],
     required_columns=["agency_name", "agency_url", "agency_timezone"],
@@ -78,6 +79,7 @@ STOPS = FileSchema(
         "wheelchair_boarding",
         "level_id",
         "platform_code",
+        "stop_access",
     ],
     primary_key=["stop_id"],
     required_columns=["stop_id"],
@@ -99,6 +101,7 @@ ROUTES = FileSchema(
         "continuous_pickup",
         "continuous_drop_off",
         "network_id",
+        "cemv_support",
     ],
     primary_key=["route_id"],
     required_columns=["route_id", "route_type"],
@@ -117,6 +120,7 @@ TRIPS = FileSchema(
         "shape_id",
         "wheelchair_accessible",
         "bikes_allowed",
+        "cars_allowed",
     ],
     primary_key=["trip_id"],
     required_columns=["route_id", "service_id", "trip_id"],
@@ -129,17 +133,23 @@ STOP_TIMES = FileSchema(
         "arrival_time",
         "departure_time",
         "stop_id",
+        "location_group_id",
+        "location_id",
         "stop_sequence",
         "stop_headsign",
+        "start_pickup_drop_off_window",
+        "end_pickup_drop_off_window",
         "pickup_type",
         "drop_off_type",
         "continuous_pickup",
         "continuous_drop_off",
         "shape_dist_traveled",
         "timepoint",
+        "pickup_booking_rule_id",
+        "drop_off_booking_rule_id",
     ],
     primary_key=["trip_id", "stop_sequence"],
-    required_columns=["trip_id", "stop_id", "stop_sequence"],
+    required_columns=["trip_id", "stop_sequence"],
     numeric_sort_columns={"stop_sequence": pa.int32()},
 )
 
@@ -215,7 +225,7 @@ FEED_INFO = FileSchema(
 )
 
 # ---------------------------------------------------------------------------
-# Additional GTFS files (Fares V2, Flex, etc.)
+# Fares V1
 # ---------------------------------------------------------------------------
 
 FARE_ATTRIBUTES = FileSchema(
@@ -242,9 +252,13 @@ FARE_RULES = FileSchema(
         "destination_id",
         "contains_id",
     ],
-    primary_key=[],  # no unique key defined in spec
+    primary_key=["fare_id", "route_id", "origin_id", "destination_id", "contains_id"],
     required_columns=["fare_id"],
 )
+
+# ---------------------------------------------------------------------------
+# Additional core files
+# ---------------------------------------------------------------------------
 
 FREQUENCIES = FileSchema(
     filename="frequencies.txt",
@@ -340,7 +354,10 @@ ATTRIBUTIONS = FileSchema(
     required_columns=["organization_name"],
 )
 
+# ---------------------------------------------------------------------------
 # Fares V2
+# ---------------------------------------------------------------------------
+
 AREAS = FileSchema(
     filename="areas.txt",
     columns=["area_id", "area_name"],
@@ -365,8 +382,15 @@ NETWORKS = FileSchema(
 ROUTE_NETWORKS = FileSchema(
     filename="route_networks.txt",
     columns=["network_id", "route_id"],
-    primary_key=["network_id", "route_id"],
+    primary_key=["route_id"],
     required_columns=["network_id", "route_id"],
+)
+
+RIDER_CATEGORIES = FileSchema(
+    filename="rider_categories.txt",
+    columns=["rider_category_id", "rider_category_name", "is_default_fare_category", "eligibility_url"],
+    primary_key=["rider_category_id"],
+    required_columns=["rider_category_id", "rider_category_name", "is_default_fare_category"],
 )
 
 FARE_MEDIA = FileSchema(
@@ -378,8 +402,8 @@ FARE_MEDIA = FileSchema(
 
 FARE_PRODUCTS = FileSchema(
     filename="fare_products.txt",
-    columns=["fare_product_id", "fare_product_name", "fare_media_id", "amount", "currency"],
-    primary_key=["fare_product_id", "fare_media_id"],
+    columns=["fare_product_id", "fare_product_name", "rider_category_id", "fare_media_id", "amount", "currency"],
+    primary_key=["fare_product_id", "rider_category_id", "fare_media_id"],
     required_columns=["fare_product_id", "amount", "currency"],
 )
 
@@ -395,7 +419,7 @@ FARE_LEG_RULES = FileSchema(
         "fare_product_id",
         "rule_priority",
     ],
-    primary_key=[],  # no unique key in spec
+    primary_key=["network_id", "from_area_id", "to_area_id", "from_timeframe_group_id", "to_timeframe_group_id", "fare_product_id"],
     required_columns=["fare_product_id"],
 )
 
@@ -410,15 +434,63 @@ FARE_TRANSFER_RULES = FileSchema(
         "fare_transfer_type",
         "fare_product_id",
     ],
-    primary_key=[],  # no unique key in spec
+    primary_key=["from_leg_group_id", "to_leg_group_id", "fare_product_id", "transfer_count", "duration_limit"],
     required_columns=["fare_transfer_type"],
+)
+
+FARE_LEG_JOIN_RULES = FileSchema(
+    filename="fare_leg_join_rules.txt",
+    columns=["from_network_id", "to_network_id", "from_stop_id", "to_stop_id"],
+    primary_key=["from_network_id", "to_network_id", "from_stop_id", "to_stop_id"],
+    required_columns=["from_network_id", "to_network_id"],
 )
 
 TIMEFRAMES = FileSchema(
     filename="timeframes.txt",
     columns=["timeframe_group_id", "start_time", "end_time", "service_id"],
     primary_key=["timeframe_group_id", "start_time", "end_time", "service_id"],
-    required_columns=["timeframe_group_id", "start_time", "end_time", "service_id"],
+    required_columns=["timeframe_group_id", "service_id"],
+)
+
+# ---------------------------------------------------------------------------
+# GTFS-Flex
+# ---------------------------------------------------------------------------
+
+LOCATION_GROUPS = FileSchema(
+    filename="location_groups.txt",
+    columns=["location_group_id", "location_group_name"],
+    primary_key=["location_group_id"],
+    required_columns=["location_group_id"],
+)
+
+LOCATION_GROUP_STOPS = FileSchema(
+    filename="location_group_stops.txt",
+    columns=["location_group_id", "stop_id"],
+    primary_key=["location_group_id", "stop_id"],
+    required_columns=["location_group_id", "stop_id"],
+)
+
+BOOKING_RULES = FileSchema(
+    filename="booking_rules.txt",
+    columns=[
+        "booking_rule_id",
+        "booking_type",
+        "prior_notice_duration_min",
+        "prior_notice_duration_max",
+        "prior_notice_last_day",
+        "prior_notice_last_time",
+        "prior_notice_start_day",
+        "prior_notice_start_time",
+        "prior_notice_service_id",
+        "message",
+        "pickup_message",
+        "drop_off_message",
+        "phone_number",
+        "info_url",
+        "booking_url",
+    ],
+    primary_key=["booking_rule_id"],
+    required_columns=["booking_rule_id", "booking_type"],
 )
 
 
@@ -427,6 +499,7 @@ TIMEFRAMES = FileSchema(
 # ---------------------------------------------------------------------------
 
 _ALL_SCHEMAS = [
+    # Core
     AGENCY,
     STOPS,
     ROUTES,
@@ -436,23 +509,32 @@ _ALL_SCHEMAS = [
     CALENDAR_DATES,
     SHAPES,
     FEED_INFO,
+    # Fares V1
     FARE_ATTRIBUTES,
     FARE_RULES,
+    # Additional core
     FREQUENCIES,
     TRANSFERS,
     PATHWAYS,
     LEVELS,
     TRANSLATIONS,
     ATTRIBUTIONS,
+    # Fares V2
     AREAS,
     STOP_AREAS,
     NETWORKS,
     ROUTE_NETWORKS,
+    RIDER_CATEGORIES,
     FARE_MEDIA,
     FARE_PRODUCTS,
     FARE_LEG_RULES,
     FARE_TRANSFER_RULES,
+    FARE_LEG_JOIN_RULES,
     TIMEFRAMES,
+    # GTFS-Flex
+    LOCATION_GROUPS,
+    LOCATION_GROUP_STOPS,
+    BOOKING_RULES,
 ]
 
 GTFS_SCHEMAS: dict[str, FileSchema] = {s.filename: s for s in _ALL_SCHEMAS}
@@ -469,4 +551,8 @@ TIME_COLUMNS: frozenset[str] = frozenset({
     "departure_time",
     "start_time",
     "end_time",
+    "start_pickup_drop_off_window",
+    "end_pickup_drop_off_window",
+    "prior_notice_last_time",
+    "prior_notice_start_time",
 })
