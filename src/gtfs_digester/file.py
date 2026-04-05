@@ -214,9 +214,10 @@ def _sort_by_primary_key(table: pa.Table, schema: FileSchema) -> pa.Table:
             table = table.append_column(sort_key_name, sort_key)
             temp_cols.append(sort_key_name)
 
-    # Build sort specification: PK columns first, then remaining for tie-breaking
+    # Build sort specification: PK columns first (only those present), then remaining
     sort_keys = []
-    for col in schema.primary_key:
+    present_pk = [col for col in schema.primary_key if col in table.column_names]
+    for col in present_pk:
         if col in schema.numeric_sort_columns and f"_sort_{col}" in table.column_names:
             sort_keys.append((f"_sort_{col}", "ascending"))
         else:
@@ -224,7 +225,7 @@ def _sort_by_primary_key(table: pa.Table, schema: FileSchema) -> pa.Table:
 
     all_cols = [c for c in table.column_names if not c.startswith("_sort_")]
     for col in all_cols:
-        if col not in schema.primary_key:
+        if col not in present_pk:
             if col in schema.numeric_sort_columns and f"_sort_{col}" in table.column_names:
                 sort_keys.append((f"_sort_{col}", "ascending"))
             else:
@@ -241,27 +242,28 @@ def _sort_by_primary_key(table: pa.Table, schema: FileSchema) -> pa.Table:
 
 def _validate_unique_keys(table: pa.Table, schema: FileSchema) -> None:
     """Raise ValueError if duplicate primary keys exist."""
-    if not schema.primary_key:
+    present_pk = [col for col in schema.primary_key if col in table.column_names]
+    if not present_pk:
         return
 
-    if len(schema.primary_key) == 1:
-        col = table.column(schema.primary_key[0])
+    if len(present_pk) == 1:
+        col = table.column(present_pk[0])
         n_unique = pc.count_distinct(col).as_py()
         if n_unique < table.num_rows:
             raise ValueError(
                 f"Duplicate primary keys in {schema.filename} "
-                f"(column: {schema.primary_key[0]}): "
+                f"(column: {present_pk[0]}): "
                 f"{table.num_rows} rows but only {n_unique} unique keys"
             )
     else:
         seen: set[tuple[str, ...]] = set()
         for i in range(table.num_rows):
             key = tuple(
-                table.column(col)[i].as_py() for col in schema.primary_key
+                table.column(col)[i].as_py() for col in present_pk
             )
             if key in seen:
                 raise ValueError(
                     f"Duplicate primary key in {schema.filename}: "
-                    f"{dict(zip(schema.primary_key, key))}"
+                    f"{dict(zip(present_pk, key))}"
                 )
             seen.add(key)
