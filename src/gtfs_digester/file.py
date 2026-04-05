@@ -80,6 +80,17 @@ class GTFSFile:
         if data.startswith(b"\xef\xbb\xbf"):
             data = data[3:]
 
+        # Handle empty files (header-only or completely empty)
+        stripped = data.strip()
+        if not stripped or b"\n" not in stripped:
+            # Empty or header-only CSV — return empty table
+            if stripped:
+                headers = _get_csv_headers(data)
+                empty_table = pa.table({h: pa.array([], type=pa.string()) for h in headers})
+            else:
+                empty_table = pa.table({})
+            return GTFSFile(filename=filename, table=empty_table, schema=schema)
+
         # Parse CSV — all values as strings
         headers = _get_csv_headers(data)
         table = pyarrow.csv.read_csv(
