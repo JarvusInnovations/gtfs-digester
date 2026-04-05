@@ -18,6 +18,12 @@ dependencies = [
 requires = ["uv_build>=0.11.3,<0.12.0"]
 build-backend = "uv_build"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests that process real GTFS feeds (deselect with '-k not Real')",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
