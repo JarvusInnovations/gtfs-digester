@@ -179,9 +179,9 @@ def _process_known_file(table: pa.Table, schema: FileSchema) -> pa.Table:
     # Sort by primary key
     table = _sort_by_primary_key(table, schema)
 
-    # Validate uniqueness
+    # Warn on duplicate primary keys (real feeds often violate PK constraints)
     if schema.primary_key:
-        _validate_unique_keys(table, schema)
+        _check_unique_keys(table, schema)
 
     return table
 
@@ -251,8 +251,8 @@ def _sort_by_primary_key(table: pa.Table, schema: FileSchema) -> pa.Table:
     return table
 
 
-def _validate_unique_keys(table: pa.Table, schema: FileSchema) -> None:
-    """Raise ValueError if duplicate primary keys exist."""
+def _check_unique_keys(table: pa.Table, schema: FileSchema) -> None:
+    """Warn if duplicate primary keys exist. Real feeds often violate PK constraints."""
     present_pk = [col for col in schema.primary_key if col in table.column_names]
     if not present_pk:
         return
@@ -261,7 +261,7 @@ def _validate_unique_keys(table: pa.Table, schema: FileSchema) -> None:
         col = table.column(present_pk[0])
         n_unique = pc.count_distinct(col).as_py()
         if n_unique < table.num_rows:
-            raise ValueError(
+            warnings.warn(
                 f"Duplicate primary keys in {schema.filename} "
                 f"(column: {present_pk[0]}): "
                 f"{table.num_rows} rows but only {n_unique} unique keys"
@@ -273,8 +273,9 @@ def _validate_unique_keys(table: pa.Table, schema: FileSchema) -> None:
                 table.column(col)[i].as_py() for col in present_pk
             )
             if key in seen:
-                raise ValueError(
+                warnings.warn(
                     f"Duplicate primary key in {schema.filename}: "
                     f"{dict(zip(present_pk, key))}"
                 )
+                return  # warn once per file, not per duplicate
             seen.add(key)

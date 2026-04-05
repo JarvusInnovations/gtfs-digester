@@ -107,12 +107,13 @@ class TestGTFSFile:
         f = GTFSFile.from_csv_bytes("stop_times.txt", csv_data, schema=schema)
         assert f.table.column("arrival_time")[0].as_py() == "09:05:00"
 
-    def test_duplicate_primary_key_raises(self):
-        """Duplicate primary keys should raise ValueError."""
+    def test_duplicate_primary_key_warns(self):
+        """Duplicate primary keys should warn, not error (real feeds violate PKs)."""
         csv_data = b"stop_id,stop_name,stop_lat,stop_lon\nS1,First,40.0,-75.0\nS1,Duplicate,41.0,-76.0"
         schema = get_schema("stops.txt")
-        with pytest.raises(ValueError, match="Duplicate"):
-            GTFSFile.from_csv_bytes("stops.txt", csv_data, schema=schema)
+        with pytest.warns(UserWarning, match="Duplicate"):
+            f = GTFSFile.from_csv_bytes("stops.txt", csv_data, schema=schema)
+        assert f.row_count == 2  # both rows preserved
 
     def test_canonical_csv_deterministic(self):
         """Same input should always produce identical canonical CSV."""
