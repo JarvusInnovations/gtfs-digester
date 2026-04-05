@@ -8,12 +8,27 @@ authors = [
 ]
 license = "MIT"
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: GIS",
+"Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
 dependencies = [
     "blake3>=1.0.8",
     "fsspec>=2026.3.0",
     "gcsfs>=2026.3.0",
     "pyarrow>=23.0.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JarvusInnovations/gtfs-digester"
+Repository = "https://github.com/JarvusInnovations/gtfs-digester"
+Issues = "https://github.com/JarvusInnovations/gtfs-digester/issues"
 
 [build-system]
 requires = ["uv_build>=0.11.3,<0.12.0"]
