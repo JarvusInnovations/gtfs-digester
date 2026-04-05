@@ -89,7 +89,7 @@ parquet.gtfsrt.io/
     # Per-feed directory, keyed by schedule_url (same base64url encoding as RT)
     base64url={base64url-of-schedule-url}/
       # Each feed version is a self-contained directory
-      _fingerprint={fingerprint}/
+      _feed_digest={fingerprint}/
         agency.parquet
         stops.parquet
         routes.parquet
@@ -115,7 +115,7 @@ Each version's `metadata.json` is a single JSON document with all provenance and
 
 ```json
 {
-  "_fingerprint": "v1:abc123...",
+  "_feed_digest": "v1:abc123...",
   "schedule_url": "https://www3.septa.org/developer/google_bus.zip",
   "date_retrieved": "2026-03-28T00:31:25Z",
   "feed_start_date": "2026-03-29",
@@ -139,7 +139,7 @@ Human-readable, inspectable with `cat` or `jq`. DuckDB can glob across versions:
 
 ```sql
 SELECT * FROM read_json_auto(
-  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_fingerprint=*/metadata.json',
+  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_feed_digest=*/metadata.json',
   hive_partitioning=true
 );
 ```
@@ -148,9 +148,9 @@ This is the **commit marker** — written last after all table parquets. If `met
 
 ### Why This Layout
 
-1. **Version-first directories**: a feed version is a single prefix (`_fingerprint={fp}/`). Listing, copying, replicating, or deleting a version is one operation. The unit of work at the archiver level is the version, not the table.
+1. **Version-first directories**: a feed version is a single prefix (`_feed_digest={fp}/`). Listing, copying, replicating, or deleting a version is one operation. The unit of work at the archiver level is the version, not the table.
 2. **Self-contained**: everything about a version lives in one directory — table data, metadata, provenance. No cross-references needed.
-3. **Hive-compatible**: DuckDB reads `_fingerprint=*/*.parquet` and gets `_fingerprint` as a column. Consumers that need all versions of a table can glob across versions.
+3. **Hive-compatible**: DuckDB reads `_feed_digest=*/*.parquet` and gets `_feed_digest` as a column. Consumers that need all versions of a table can glob across versions.
 4. **Atomic writes**: each ingestion writes N table files + `metadata.json` last. A failed write leaves old data untouched. `metadata.json` presence = complete version.
 5. **Content-addressed**: same fingerprint = same path. Re-ingesting an identical feed overwrites with identical data — safe idempotent.
 6. **Parquet not CSV**: consumers query directly with DuckDB/BigQuery. The digester produces Arrow tables — parquet is the natural serialization.
@@ -164,18 +164,18 @@ DuckDB consumers (Transit Lake's dbt-gtfs, BigQuery, ad-hoc) read like:
 ```sql
 -- All versions of stops for a feed
 SELECT * FROM read_parquet(
-  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_fingerprint=*/stops.parquet',
+  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_feed_digest=*/stops.parquet',
   hive_partitioning=true
 );
 
 -- Specific version
 SELECT * FROM read_parquet(
-  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_fingerprint={fp}/stops.parquet'
+  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_feed_digest={fp}/stops.parquet'
 );
 
 -- All version metadata for a feed
 SELECT * FROM read_json_auto(
-  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_fingerprint=*/metadata.json',
+  'http://parquet.gtfsrt.io/schedules/base64url={b64}/_feed_digest=*/metadata.json',
   hive_partitioning=true
 );
 ```
@@ -190,14 +190,14 @@ gs://{agency}.transitlake.io/raw/gtfs-schedule/
   feed_meta/{timestamp}.parquet
 ```
 
-The archiver uses a version-first layout (all tables under `_fingerprint={fp}/`). When Transit Lake replicates from the archiver, it will need to either:
+The archiver uses a version-first layout (all tables under `_feed_digest={fp}/`). When Transit Lake replicates from the archiver, it will need to either:
 
 - Adopt the version-first layout (cleaner, matches the archiver as source of truth)
 - Reshape into its current table-first layout during replication
 
-The naming difference (`_fingerprint` vs `_feed_hash`) also needs resolution. Options:
+The naming difference (`_feed_digest` vs `_feed_hash`) also needs resolution. Options:
 
-- Use `_fingerprint` everywhere (simplest — just copy)
+- Use `_feed_digest` everywhere (simplest — just copy)
 - Recompute `_feed_hash` from content (preserves independence but redundant)
 
 These decisions are deferred to the Transit Lake integration phase.
@@ -215,7 +215,7 @@ Two assets in a new `gtfs_schedule` group, plus extensions to existing metadata 
 - For each unique `schedule_url` across all agencies/systems:
   - Downloads the zip (with auth if needed, reusing archiver's secret resolution)
   - Runs gtfs-digester to compute fingerprint
-  - Checks for existing `_fingerprint={fp}/metadata.json` in parquet bucket
+  - Checks for existing `_feed_digest={fp}/metadata.json` in parquet bucket
   - If new: registers Dagster dynamic partition, stores digester result in memory/output
 - Yields `MaterializeResult` with list of new fingerprints discovered
 - Metadata: urls_checked, new_feeds_found, unchanged_feeds, errors
@@ -224,7 +224,7 @@ Two assets in a new `gtfs_schedule` group, plus extensions to existing metadata 
 
 - Triggered by sensor watching `gtfs_schedule_check`
 - Downloads the zip fresh and runs gtfs-digester (same as check — digester is fast and cheap, no need for intermediate storage)
-- Writes each table as parquet to `parquet.gtfsrt.io/schedules/base64url={b64}/_fingerprint={fp}/{table}.parquet`
+- Writes each table as parquet to `parquet.gtfsrt.io/schedules/base64url={b64}/_feed_digest={fp}/{table}.parquet`
 - Writes `metadata.json` last (commit marker — contains provenance, digester info, file hashes)
 
 ### Why Split Check and Ingest?
@@ -240,7 +240,7 @@ The digester runs twice (once in check, once in ingest) — this is intentional.
 
 Rather than a separate index asset, **extend the existing `feeds_metadata` and `inventory` assets** to also scan schedule data:
 
-- **`feeds_metadata`** (already runs daily at 4am): add schedule columns to `feeds.parquet` — `schedule_fingerprint`, `schedule_date_retrieved`, `schedule_start_date`, `schedule_end_date` per feed. Reads `metadata.json` files from the schedules prefix.
+- **`feeds_metadata`** (already runs daily at 4am): add schedule columns to `feeds.parquet` — `schedule_feed_digest`, `schedule_date_retrieved`, `schedule_start_date`, `schedule_end_date` per feed. Reads `metadata.json` files from the schedules prefix.
 - **`inventory`** (already runs daily at 4am): add `schedule_versions` array to each feed entry in `inventory.json`.
 - **Dependency**: add `gtfs_schedule_ingest` as an optional upstream so these re-run when new schedules land (via sensor or schedule ordering — inventory already runs after compaction).
 

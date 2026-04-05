@@ -4,7 +4,7 @@ Supports local filesystem and cloud storage (GCS, S3) via fsspec.
 
 Layout per the PLAN.md:
     base_path/
-      _fingerprint={fp}/
+      _feed_digest={fp}/
         agency.parquet
         stops.parquet
         ...
@@ -36,12 +36,12 @@ def write_exploded(
     """Write an archive as exploded parquet to a version-first directory.
 
     Creates:
-        {base_path}/_fingerprint={fp}/{table}.parquet  (one per file)
-        {base_path}/_fingerprint={fp}/metadata.json    (commit marker, last)
+        {base_path}/_feed_digest={fp}/{table}.parquet  (one per file)
+        {base_path}/_feed_digest={fp}/metadata.json    (commit marker, last)
 
     Args:
         archive: The digested archive to write.
-        base_path: Root path for this feed (contains _fingerprint= dirs).
+        base_path: Root path for this feed (contains _feed_digest= dirs).
             For GCS: "gs://bucket/schedules/base64url=abc123"
             For local: "/path/to/output"
         schedule_url: Source URL for provenance.
@@ -56,7 +56,7 @@ def write_exploded(
         filesystem, base_path = _resolve_fs(base_path)
 
     fp = archive.fingerprint
-    version_dir = f"{base_path}/_fingerprint={fp.root_hash}"
+    version_dir = f"{base_path}/_feed_digest={fp.root_hash}"
 
     # Ensure directory exists
     filesystem.mkdirs(version_dir, exist_ok=True)
@@ -104,7 +104,7 @@ def read_metadata(
     if filesystem is None:
         filesystem, base_path = _resolve_fs(base_path)
 
-    metadata_path = f"{base_path}/_fingerprint={fingerprint}/metadata.json"
+    metadata_path = f"{base_path}/_feed_digest={fingerprint}/metadata.json"
     with filesystem.open(metadata_path, "rb") as f:
         return FeedMetadata.from_json(f.read())
 
@@ -124,7 +124,7 @@ def version_exists(
     if filesystem is None:
         filesystem, base_path = _resolve_fs(base_path)
 
-    metadata_path = f"{base_path}/_fingerprint={fingerprint}/metadata.json"
+    metadata_path = f"{base_path}/_feed_digest={fingerprint}/metadata.json"
     return filesystem.exists(metadata_path)
 
 
@@ -146,10 +146,10 @@ def list_versions(
         return []
 
     for entry in entries:
-        # Extract fingerprint from path like .../base64url=x/_fingerprint=v1:abc
+        # Extract fingerprint from path like .../base64url=x/_feed_digest=v1:abc
         basename = entry.rstrip("/").rsplit("/", 1)[-1]
-        if basename.startswith("_fingerprint="):
-            fp = basename[len("_fingerprint="):]
+        if basename.startswith("_feed_digest="):
+            fp = basename[len("_feed_digest="):]
             metadata_path = f"{entry}/metadata.json"
             if filesystem.exists(metadata_path):
                 versions.append(fp)
@@ -174,7 +174,7 @@ def read_table(
     if filesystem is None:
         filesystem, base_path = _resolve_fs(base_path)
 
-    parquet_path = f"{base_path}/_fingerprint={fingerprint}/{table_name}.parquet"
+    parquet_path = f"{base_path}/_feed_digest={fingerprint}/{table_name}.parquet"
     with filesystem.open(parquet_path, "rb") as f:
         return pq.read_table(f)
 

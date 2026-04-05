@@ -15,7 +15,7 @@ from datetime import datetime
 class FeedMetadata:
     """Metadata for a single GTFS feed version."""
 
-    _fingerprint: str
+    _feed_digest: str
     schedule_url: str
     date_retrieved: str  # ISO 8601 UTC
     digester_version: str
@@ -29,7 +29,7 @@ class FeedMetadata:
         """Serialize to JSON string."""
         return json.dumps(
             {
-                "_fingerprint": self._fingerprint,
+                "_feed_digest": self._feed_digest,
                 "schedule_url": self.schedule_url,
                 "date_retrieved": self.date_retrieved,
                 "feed_start_date": self.feed_start_date,
@@ -53,7 +53,7 @@ class FeedMetadata:
             data = data.decode("utf-8")
         parsed = json.loads(data)
         return FeedMetadata(
-            _fingerprint=parsed["_fingerprint"],
+            _feed_digest=parsed["_feed_digest"],
             schedule_url=parsed["schedule_url"],
             date_retrieved=parsed["date_retrieved"],
             feed_start_date=parsed.get("feed_start_date"),
@@ -105,7 +105,7 @@ class FeedMetadata:
                         feed_end_date = val
 
         return FeedMetadata(
-            _fingerprint=fp.root_hash,
+            _feed_digest=fp.root_hash,
             schedule_url=schedule_url,
             date_retrieved=date_retrieved,
             feed_start_date=feed_start_date,

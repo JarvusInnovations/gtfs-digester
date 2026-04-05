@@ -45,7 +45,7 @@ class TestFeedMetadata:
             date_retrieved="2026-04-05T12:00:00Z",
             source_sha256="abc123",
         )
-        assert meta._fingerprint == archive.fingerprint.root_hash
+        assert meta._feed_digest == archive.fingerprint.root_hash
         assert meta.schedule_url == "https://example.com/gtfs.zip"
         assert meta.date_retrieved == "2026-04-05T12:00:00Z"
         assert meta.feed_start_date == "20260101"
@@ -64,11 +64,11 @@ class TestFeedMetadata:
         )
         json_str = meta.to_json()
         parsed = json.loads(json_str)
-        assert parsed["_fingerprint"] == meta._fingerprint
+        assert parsed["_feed_digest"] == meta._feed_digest
         assert parsed["feed_start_date"] == "20260101"
 
         meta2 = FeedMetadata.from_json(json_str)
-        assert meta2._fingerprint == meta._fingerprint
+        assert meta2._feed_digest == meta._feed_digest
         assert meta2.file_row_counts == meta.file_row_counts
 
     def test_no_feed_info(self):
@@ -95,7 +95,7 @@ class TestExplodedStorage:
         )
 
         fp = archive.fingerprint.root_hash
-        version_dir = tmp_path / "feed" / f"_fingerprint={fp}"
+        version_dir = tmp_path / "feed" / f"_feed_digest={fp}"
 
         # Check files exist
         assert (version_dir / "stops.parquet").exists()
@@ -106,7 +106,7 @@ class TestExplodedStorage:
 
         # Read back metadata
         meta2 = read_metadata(base, fp)
-        assert meta2._fingerprint == meta._fingerprint
+        assert meta2._feed_digest == meta._feed_digest
         assert meta2.schedule_url == "https://example.com/gtfs.zip"
 
         # Read back a table
@@ -158,7 +158,7 @@ class TestExplodedStorage:
         meta2 = write_exploded(archive, base, schedule_url="http://x.com/g.zip", date_retrieved="2026-01-02T00:00:00Z")
 
         # Same fingerprint
-        assert meta1._fingerprint == meta2._fingerprint
+        assert meta1._feed_digest == meta2._feed_digest
 
         # Only one version directory
         assert len(list_versions(base)) == 1
@@ -174,7 +174,7 @@ class TestExplodedStorage:
         write_exploded(archive, base, schedule_url="http://x.com/g.zip")
 
         fp = archive.fingerprint.root_hash
-        version_dir = tmp_path / "feed" / f"_fingerprint={fp}"
+        version_dir = tmp_path / "feed" / f"_feed_digest={fp}"
 
         # Read directly with PyArrow
         stops = pq.read_table(version_dir / "stops.parquet")
@@ -183,7 +183,7 @@ class TestExplodedStorage:
 
         # All data columns should be string type (hive partition columns may differ)
         for col_name in stops.column_names:
-            if not col_name.startswith("_fingerprint"):
+            if not col_name.startswith("_feed_digest"):
                 assert stops.schema.field(col_name).type == pa.string()
 
     def test_unknown_files_written(self, tmp_path):
@@ -197,7 +197,7 @@ class TestExplodedStorage:
         write_exploded(archive, base, schedule_url="http://x.com/g.zip")
 
         fp = archive.fingerprint.root_hash
-        version_dir = tmp_path / "feed" / f"_fingerprint={fp}"
+        version_dir = tmp_path / "feed" / f"_feed_digest={fp}"
 
         assert (version_dir / "custom_data.parquet").exists()
         custom = pq.read_table(version_dir / "custom_data.parquet")
@@ -219,7 +219,7 @@ class TestExplodedStorageRealFeed:
         )
 
         fp = archive.fingerprint.root_hash
-        version_dir = tmp_path / "septa" / f"_fingerprint={fp}"
+        version_dir = tmp_path / "septa" / f"_feed_digest={fp}"
 
         # Core files exist as parquet
         assert (version_dir / "stops.parquet").exists()
