@@ -22,7 +22,32 @@ pip install gtfs-digester
 uv add gtfs-digester
 ```
 
-## Quick Start
+## CLI
+
+```bash
+# Fingerprint a feed
+gtfs-digester digest google_transit.zip
+# Fingerprint: v1:abc123...
+# Files: 11
+#   agency.txt        1 rows
+#   stops.txt      9245 rows
+#   ...
+
+# JSON output or just the hash
+gtfs-digester digest --json google_transit.zip
+gtfs-digester digest --quiet google_transit.zip
+
+# Diff two feeds (exit code 1 if different)
+gtfs-digester diff old.zip new.zip
+
+# Write as exploded parquet
+gtfs-digester write google_transit.zip ./output --schedule-url https://example.com/gtfs.zip
+
+# Produce a normalized GTFS zip
+gtfs-digester normalize messy.zip clean.zip
+```
+
+## Python API
 
 ```python
 from gtfs_digester import GTFSArchive
