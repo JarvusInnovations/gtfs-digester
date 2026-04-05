@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Chris Alfano", email = "chris@jarv.us" }
 ]
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "blake3>=1.0.8",
