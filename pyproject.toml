@@ -1,6 +1,6 @@
 [project]
 name = "gtfs-digester"
-version = "0.1.0"
+version = "0.2.0"
 description = "Canonicalization, fingerprinting, and change detection for GTFS Schedule feeds"
 readme = "README.md"
 authors = [
