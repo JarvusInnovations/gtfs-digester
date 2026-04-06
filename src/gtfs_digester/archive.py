@@ -61,12 +61,16 @@ class GTFSArchive:
 
             schema = get_schema(basename)
             data = zf.read(name)
-            gtfs_file = GTFSFile.from_csv_bytes(
-                filename=basename,
-                data=data,
-                schema=schema,
-            )
-            files[basename] = gtfs_file
+            try:
+                gtfs_file = GTFSFile.from_csv_bytes(
+                    filename=basename,
+                    data=data,
+                    schema=schema,
+                )
+                files[basename] = gtfs_file
+            except Exception as e:
+                warnings.warn(f"Skipping {basename}: {e}")
+                continue
 
         return GTFSArchive(files=files)
 
@@ -92,12 +96,16 @@ class GTFSArchive:
 
             schema = get_schema(basename)
             data = txt_file.read_bytes()
-            gtfs_file = GTFSFile.from_csv_bytes(
-                filename=basename,
-                data=data,
-                schema=schema,
-            )
-            files[basename] = gtfs_file
+            try:
+                gtfs_file = GTFSFile.from_csv_bytes(
+                    filename=basename,
+                    data=data,
+                    schema=schema,
+                )
+                files[basename] = gtfs_file
+            except Exception as e:
+                warnings.warn(f"Skipping {basename}: {e}")
+                continue
 
         return GTFSArchive(files=files)
 
