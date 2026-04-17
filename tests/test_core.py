@@ -214,8 +214,23 @@ class TestFromArrowTable:
             "stop_lat": pa.array([40.0], type=pa.float64()),  # typed, not string
             "stop_lon": pa.array([-75.0], type=pa.float64()),
         })
-        with pytest.raises(TypeError, match="expects all columns to be pa.string"):
+        with pytest.raises(TypeError, match="expects all columns to be"):
             GTFSFile.from_arrow_table("stops.txt", table, schema=schema)
+
+    def test_accepts_large_string_columns(self):
+        """polars exports pa.large_string() — accept it and normalize to pa.string()."""
+        schema = get_schema("stops.txt")
+        table = pa.table({
+            "stop_id": pa.array(["S1"], type=pa.large_string()),
+            "stop_name": pa.array(["Main"], type=pa.large_string()),
+            "stop_lat": pa.array(["40.0"], type=pa.large_string()),
+            "stop_lon": pa.array(["-75.0"], type=pa.large_string()),
+        })
+        f = GTFSFile.from_arrow_table("stops.txt", table, schema=schema)
+        assert f.row_count == 1
+        # Resulting table should be pa.string(), not large_string
+        for field in f.table.schema:
+            assert pa.types.is_string(field.type)
 
     def test_empty_table(self):
         """Empty table (no columns, no rows) should round-trip without error."""

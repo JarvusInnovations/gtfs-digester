@@ -119,14 +119,23 @@ class GTFSFile:
         All columns must be of type `pa.string()` (GTFS convention — all fields
         are strings until interpreted).
         """
-        # Validate all columns are strings
+        # Validate + normalize column types. Accept pa.string() and
+        # pa.large_string() (polars uses large_string); reject other types
+        # since GTFS fields are strings until interpreted.
+        cast_needed = False
         for field in table.schema:
-            if not pa.types.is_string(field.type):
+            if pa.types.is_large_string(field.type):
+                cast_needed = True
+            elif not pa.types.is_string(field.type):
                 raise TypeError(
-                    f"from_arrow_table expects all columns to be pa.string(), "
-                    f"got {field.type} for column {field.name!r} in {filename}. "
-                    f"Convert typed columns to strings before calling."
+                    f"from_arrow_table expects all columns to be pa.string() "
+                    f"or pa.large_string(), got {field.type} for column "
+                    f"{field.name!r} in {filename}. Convert typed columns "
+                    f"to strings before calling."
                 )
+        if cast_needed:
+            target_schema = pa.schema([pa.field(f.name, pa.string()) for f in table.schema])
+            table = table.cast(target_schema)
 
         # Short-circuit truly empty tables — matches from_csv_bytes behavior
         if table.num_columns == 0:
