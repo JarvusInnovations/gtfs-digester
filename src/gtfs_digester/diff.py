@@ -107,30 +107,27 @@ def compute_file_diff(
     added = new_keyed.join(old_keyed.select("__pk__"), on="__pk__", how="anti")
     removed = old_keyed.join(new_keyed.select("__pk__"), on="__pk__", how="anti")
 
-    # Modified: inner join on PK, compare non-PK columns via concatenated hash
+    # Modified: inner join on PK, compare non-PK columns via concatenated hash.
+    # Keep all original columns (including PK) on the new side; the old side
+    # only contributes the non-PK columns we need to compare against.
     non_pk_cols = [c for c in new_keyed.columns if c not in pk_cols and c != "__pk__"]
 
     if non_pk_cols:
-        old_common = old_keyed.select(["__pk__"] + non_pk_cols)
-        new_common = new_keyed.select(["__pk__"] + non_pk_cols)
-        # Joined frame: one row per common PK, with suffixed columns for old side
-        joined = new_common.join(
-            old_common, on="__pk__", how="inner", suffix="__old__"
+        old_renamed = old_keyed.select(
+            [pl.col("__pk__")]
+            + [pl.col(c).alias(f"{c}__old__") for c in non_pk_cols]
         )
-        # Build equality mask across all non-PK columns. Rows where ANY column
-        # differs are modified. Use concat_str hashing for a single pass.
+        joined = new_keyed.join(old_renamed, on="__pk__", how="inner")
         old_hash = pl.concat_str(
             [pl.col(f"{c}__old__") for c in non_pk_cols], separator=_KEY_SEP, ignore_nulls=False,
         )
         new_hash = pl.concat_str(
             [pl.col(c) for c in non_pk_cols], separator=_KEY_SEP, ignore_nulls=False,
         )
-        modified_frame = joined.filter(old_hash != new_hash).select(
-            ["__pk__"] + non_pk_cols
-        )
+        modified_frame = joined.filter(old_hash != new_hash).select(list(new_keyed.columns))
     else:
         # No non-PK columns → nothing can differ beyond presence. No modifieds.
-        modified_frame = new_keyed.select(["__pk__"] + non_pk_cols).slice(0, 0)
+        modified_frame = new_keyed.slice(0, 0)
 
     # Strip the composite key column before returning; preserve original column
     # order from the new table for UX consistency with the old implementation.
