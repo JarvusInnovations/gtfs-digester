@@ -101,6 +101,37 @@ class GTFSFile:
             ),
         )
 
+        return GTFSFile.from_arrow_table(filename, table, schema)
+
+    @staticmethod
+    def from_arrow_table(
+        filename: str,
+        table: pa.Table,
+        schema: FileSchema | None = None,
+    ) -> GTFSFile:
+        """Build a canonical GTFSFile from a string-per-column Arrow table.
+
+        Runs the same column-ordering + normalization + PK sort as from_csv_bytes
+        but avoids the CSV serialize/parse round-trip. This is the fast path for
+        callers that already have GTFS data as Arrow (e.g. from a polars
+        DataFrame via `df.to_arrow()`).
+
+        All columns must be of type `pa.string()` (GTFS convention — all fields
+        are strings until interpreted).
+        """
+        # Validate all columns are strings
+        for field in table.schema:
+            if not pa.types.is_string(field.type):
+                raise TypeError(
+                    f"from_arrow_table expects all columns to be pa.string(), "
+                    f"got {field.type} for column {field.name!r} in {filename}. "
+                    f"Convert typed columns to strings before calling."
+                )
+
+        # Short-circuit truly empty tables — matches from_csv_bytes behavior
+        if table.num_columns == 0:
+            return GTFSFile(filename=filename, table=table, schema=schema)
+
         # Strip column name whitespace
         clean_names = [name.strip() for name in table.column_names]
         if clean_names != table.column_names:

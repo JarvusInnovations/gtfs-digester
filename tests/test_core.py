@@ -133,6 +133,111 @@ class TestGTFSFile:
 
 
 # ---------------------------------------------------------------------------
+# from_arrow_table — Arrow-native input path
+# ---------------------------------------------------------------------------
+
+class TestFromArrowTable:
+    def _arrow_from_dict(self, cols: dict[str, list[str]]) -> pa.Table:
+        return pa.table({k: pa.array(v, type=pa.string()) for k, v in cols.items()})
+
+    def test_matches_from_csv_bytes_known_file(self):
+        """Same data via Arrow and CSV paths yields identical canonical output."""
+        csv_data = b"stop_name,stop_id,stop_lat,stop_lon\nMain St,S1,40.0,-75.0\nOther,S2,41.0,-76.0"
+        schema = get_schema("stops.txt")
+
+        via_csv = GTFSFile.from_csv_bytes("stops.txt", csv_data, schema=schema)
+        via_arrow = GTFSFile.from_arrow_table(
+            "stops.txt",
+            self._arrow_from_dict({
+                "stop_name": ["Main St", "Other"],
+                "stop_id": ["S1", "S2"],
+                "stop_lat": ["40.0", "41.0"],
+                "stop_lon": ["-75.0", "-76.0"],
+            }),
+            schema=schema,
+        )
+
+        assert via_arrow.columns == via_csv.columns
+        assert via_arrow.to_canonical_csv() == via_csv.to_canonical_csv()
+        assert via_arrow.fingerprint_hash() == via_csv.fingerprint_hash()
+
+    def test_matches_from_csv_bytes_unknown_file(self):
+        """Unknown files reach the same canonical form via either entry point."""
+        csv_data = b"zebra,alpha,middle\nB,2,B\nA,1,A\nC,3,C"
+
+        via_csv = GTFSFile.from_csv_bytes("custom.txt", csv_data, schema=None)
+        via_arrow = GTFSFile.from_arrow_table(
+            "custom.txt",
+            self._arrow_from_dict({
+                "zebra": ["B", "A", "C"],
+                "alpha": ["2", "1", "3"],
+                "middle": ["B", "A", "C"],
+            }),
+            schema=None,
+        )
+
+        assert via_arrow.columns == via_csv.columns
+        assert via_arrow.fingerprint_hash() == via_csv.fingerprint_hash()
+
+    def test_normalizes_times(self):
+        """Time columns should still be zero-padded via the Arrow path."""
+        schema = get_schema("stop_times.txt")
+        table = self._arrow_from_dict({
+            "trip_id": ["T1"],
+            "stop_id": ["S1"],
+            "stop_sequence": ["1"],
+            "arrival_time": ["9:5:0"],
+            "departure_time": ["9:5:0"],
+        })
+        f = GTFSFile.from_arrow_table("stop_times.txt", table, schema=schema)
+        assert f.table.column("arrival_time")[0].as_py() == "09:05:00"
+
+    def test_sorts_numeric_primary_key(self):
+        """Numeric sort columns (like stop_sequence) should sort numerically."""
+        schema = get_schema("stop_times.txt")
+        table = self._arrow_from_dict({
+            "trip_id": ["T1", "T1", "T1"],
+            "stop_id": ["S1", "S2", "S3"],
+            "stop_sequence": ["2", "10", "1"],
+            "arrival_time": ["09:00:00", "09:05:00", "08:55:00"],
+            "departure_time": ["09:00:00", "09:05:00", "08:55:00"],
+        })
+        f = GTFSFile.from_arrow_table("stop_times.txt", table, schema=schema)
+        seqs = [f.table.column("stop_sequence")[i].as_py() for i in range(3)]
+        assert seqs == ["1", "2", "10"]
+
+    def test_rejects_non_string_columns(self):
+        """Typed (non-string) columns should raise TypeError with a clear message."""
+        schema = get_schema("stops.txt")
+        table = pa.table({
+            "stop_id": pa.array(["S1"], type=pa.string()),
+            "stop_lat": pa.array([40.0], type=pa.float64()),  # typed, not string
+            "stop_lon": pa.array([-75.0], type=pa.float64()),
+        })
+        with pytest.raises(TypeError, match="expects all columns to be pa.string"):
+            GTFSFile.from_arrow_table("stops.txt", table, schema=schema)
+
+    def test_empty_table(self):
+        """Empty table (no columns, no rows) should round-trip without error."""
+        f = GTFSFile.from_arrow_table("empty.txt", pa.table({}), schema=None)
+        assert f.row_count == 0
+
+    def test_header_only_arrow_table(self):
+        """Arrow table with columns but 0 rows processes through the pipeline."""
+        schema = get_schema("stops.txt")
+        table = pa.table({
+            "stop_id": pa.array([], type=pa.string()),
+            "stop_name": pa.array([], type=pa.string()),
+            "stop_lat": pa.array([], type=pa.string()),
+            "stop_lon": pa.array([], type=pa.string()),
+        })
+        f = GTFSFile.from_arrow_table("stops.txt", table, schema=schema)
+        assert f.row_count == 0
+        # Column ordering still applies to 0-row tables
+        assert f.columns.index("stop_id") < f.columns.index("stop_name")
+
+
+# ---------------------------------------------------------------------------
 # Fingerprint
 # ---------------------------------------------------------------------------
 
