@@ -3,13 +3,14 @@
 Diffing is hierarchical:
 1. Compare archive fingerprints — if equal, done.
 2. Compare file fingerprints — identify added/removed/modified files.
-3. For modified files, compare rows by primary key.
+3. For modified files, compare rows by primary key using polars (vectorized).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import polars as pl
 import pyarrow as pa
 
 
@@ -70,91 +71,109 @@ class ArchiveDiff:
         )
 
 
+# NUL is guaranteed not to appear in GTFS CSV values (canonicalized strings
+# never contain NULs), so it's safe as a composite-key separator.
+_KEY_SEP = "\x00"
+
+
 def compute_file_diff(
     filename: str,
     old_table: pa.Table,
     new_table: pa.Table,
     primary_key: list[str],
 ) -> FileDiff:
-    """Compute row-level diff between two tables using primary key."""
+    """Compute row-level diff between two tables using primary key.
+
+    Implementation is polars-native: PK columns are concatenated into a
+    composite key column, anti-joins identify added/removed, and non-PK
+    columns are compared via a concatenated row-hash for modified rows.
+    """
     if not primary_key:
         return _diff_no_pk(filename, old_table, new_table)
 
-    old_keys: dict[tuple[str, ...], int] = {}
-    for i in range(old_table.num_rows):
-        key = tuple(old_table.column(col)[i].as_py() for col in primary_key)
-        old_keys[key] = i
+    old_df = pl.from_arrow(old_table)
+    new_df = pl.from_arrow(new_table)
 
-    new_keys: dict[tuple[str, ...], int] = {}
-    for i in range(new_table.num_rows):
-        key = tuple(new_table.column(col)[i].as_py() for col in primary_key)
-        new_keys[key] = i
+    # Only use PK columns that actually exist in both tables
+    pk_cols = [c for c in primary_key if c in old_df.columns and c in new_df.columns]
+    if not pk_cols:
+        return _diff_no_pk(filename, old_table, new_table)
 
-    old_key_set = set(old_keys.keys())
-    new_key_set = set(new_keys.keys())
+    pk_expr = pl.concat_str(pk_cols, separator=_KEY_SEP).alias("__pk__")
+    old_keyed = old_df.with_columns(pk_expr)
+    new_keyed = new_df.with_columns(pk_expr)
 
-    added_keys = new_key_set - old_key_set
-    removed_keys = old_key_set - new_key_set
-    common_keys = old_key_set & new_key_set
+    # Anti-joins for added / removed (vectorized, runs entirely in Rust)
+    added = new_keyed.join(old_keyed.select("__pk__"), on="__pk__", how="anti")
+    removed = old_keyed.join(new_keyed.select("__pk__"), on="__pk__", how="anti")
 
-    modified_indices_new = []
-    all_columns = new_table.column_names
+    # Modified: inner join on PK, compare non-PK columns via concatenated hash
+    non_pk_cols = [c for c in new_keyed.columns if c not in pk_cols and c != "__pk__"]
 
-    for key in common_keys:
-        old_idx = old_keys[key]
-        new_idx = new_keys[key]
-        for col_name in all_columns:
-            if col_name in old_table.column_names:
-                old_val = old_table.column(col_name)[old_idx].as_py()
-                new_val = new_table.column(col_name)[new_idx].as_py()
-                if old_val != new_val:
-                    modified_indices_new.append(new_idx)
-                    break
+    if non_pk_cols:
+        old_common = old_keyed.select(["__pk__"] + non_pk_cols)
+        new_common = new_keyed.select(["__pk__"] + non_pk_cols)
+        # Joined frame: one row per common PK, with suffixed columns for old side
+        joined = new_common.join(
+            old_common, on="__pk__", how="inner", suffix="__old__"
+        )
+        # Build equality mask across all non-PK columns. Rows where ANY column
+        # differs are modified. Use concat_str hashing for a single pass.
+        old_hash = pl.concat_str(
+            [pl.col(f"{c}__old__") for c in non_pk_cols], separator=_KEY_SEP, ignore_nulls=False,
+        )
+        new_hash = pl.concat_str(
+            [pl.col(c) for c in non_pk_cols], separator=_KEY_SEP, ignore_nulls=False,
+        )
+        modified_frame = joined.filter(old_hash != new_hash).select(
+            ["__pk__"] + non_pk_cols
+        )
+    else:
+        # No non-PK columns → nothing can differ beyond presence. No modifieds.
+        modified_frame = new_keyed.select(["__pk__"] + non_pk_cols).slice(0, 0)
 
-    added_indices = sorted(new_keys[k] for k in added_keys)
-    removed_indices = sorted(old_keys[k] for k in removed_keys)
-
-    added_table = new_table.take(added_indices) if added_indices else new_table.slice(0, 0)
-    removed_table = old_table.take(removed_indices) if removed_indices else old_table.slice(0, 0)
-    modified_table = (
-        new_table.take(sorted(modified_indices_new))
-        if modified_indices_new
-        else new_table.slice(0, 0)
+    # Strip the composite key column before returning; preserve original column
+    # order from the new table for UX consistency with the old implementation.
+    original_cols = list(new_df.columns)
+    added = added.select(original_cols)
+    removed = removed.select([c for c in original_cols if c in removed.columns])
+    modified = modified_frame.select(
+        [c for c in original_cols if c in modified_frame.columns]
     )
 
     return FileDiff(
         filename=filename,
-        added=added_table,
-        removed=removed_table,
-        modified=modified_table,
+        added=added.to_arrow(),
+        removed=removed.to_arrow(),
+        modified=modified.to_arrow(),
     )
 
 
 def _diff_no_pk(filename: str, old_table: pa.Table, new_table: pa.Table) -> FileDiff:
     """Diff tables with no primary key by comparing full row content."""
-    def _row_tuple(table: pa.Table, idx: int) -> tuple[str, ...]:
-        return tuple(table.column(c)[idx].as_py() for c in table.column_names)
+    old_df = pl.from_arrow(old_table)
+    new_df = pl.from_arrow(new_table)
 
-    old_rows = {_row_tuple(old_table, i) for i in range(old_table.num_rows)}
-    new_rows = {_row_tuple(new_table, i) for i in range(new_table.num_rows)}
+    cols = list(new_df.columns)
+    # Full-row composite key covering every column
+    row_key = pl.concat_str(cols, separator=_KEY_SEP).alias("__row__")
+    old_keyed = old_df.with_columns(row_key)
+    new_keyed = new_df.with_columns(row_key)
 
-    added_rows = new_rows - old_rows
-    removed_rows = old_rows - new_rows
-
-    cols = new_table.column_names
-    added_data = {c: [] for c in cols}
-    for row in sorted(added_rows):
-        for c, v in zip(cols, row):
-            added_data[c].append(v)
-
-    removed_data = {c: [] for c in cols}
-    for row in sorted(removed_rows):
-        for c, v in zip(cols, row):
-            removed_data[c].append(v)
+    added = (
+        new_keyed.join(old_keyed.select("__row__"), on="__row__", how="anti")
+        .select(cols)
+        .sort(cols)
+    )
+    removed = (
+        old_keyed.join(new_keyed.select("__row__"), on="__row__", how="anti")
+        .select(cols)
+        .sort(cols)
+    )
 
     return FileDiff(
         filename=filename,
-        added=pa.table({c: pa.array(v, type=pa.string()) for c, v in added_data.items()}),
-        removed=pa.table({c: pa.array(v, type=pa.string()) for c, v in removed_data.items()}),
+        added=added.to_arrow(),
+        removed=removed.to_arrow(),
         modified=new_table.slice(0, 0),
     )

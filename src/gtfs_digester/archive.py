@@ -166,19 +166,21 @@ class GTFSArchive:
         file_diffs: dict[str, FileDiff] = {}
 
         for filename in common:
-            old_hash = self._files[filename].fingerprint_hash()
-            new_hash = other._files[filename].fingerprint_hash()
-            if old_hash == new_hash:
+            old_table = self._files[filename].table
+            new_table = other._files[filename].table
+
+            # Fast equality check via Arrow's native comparison — avoids the
+            # expensive CSV-serialize-and-hash path used by fingerprint_hash().
+            if old_table.equals(new_table):
                 unchanged.add(filename)
-            else:
-                modified.add(filename)
-                old_table = self._files[filename].table
-                new_table = other._files[filename].table
-                old_schema = self._files[filename].schema
-                pk = old_schema.primary_key if old_schema else []
-                file_diffs[filename] = compute_file_diff(
-                    filename, old_table, new_table, pk
-                )
+                continue
+
+            modified.add(filename)
+            old_schema = self._files[filename].schema
+            pk = old_schema.primary_key if old_schema else []
+            file_diffs[filename] = compute_file_diff(
+                filename, old_table, new_table, pk
+            )
 
         return ArchiveDiff(
             added_files=added,

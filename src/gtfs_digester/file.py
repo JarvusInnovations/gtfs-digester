@@ -292,7 +292,11 @@ def _sort_by_primary_key(table: pa.Table, schema: FileSchema) -> pa.Table:
 
 
 def _check_unique_keys(table: pa.Table, schema: FileSchema) -> None:
-    """Warn if duplicate primary keys exist. Real feeds often violate PK constraints."""
+    """Warn if duplicate primary keys exist. Real feeds often violate PK constraints.
+
+    Uses a polars hashed-group-by for multi-column PKs and pyarrow's count_distinct
+    for single-column PKs. Both are vectorized — no Python row loops.
+    """
     present_pk = [col for col in schema.primary_key if col in table.column_names]
     if not present_pk:
         return
@@ -307,15 +311,16 @@ def _check_unique_keys(table: pa.Table, schema: FileSchema) -> None:
                 f"{table.num_rows} rows but only {n_unique} unique keys"
             )
     else:
-        seen: set[tuple[str, ...]] = set()
-        for i in range(table.num_rows):
-            key = tuple(
-                table.column(col)[i].as_py() for col in present_pk
-            )
-            if key in seen:
+        import polars as pl
+        df = pl.from_arrow(table.select(present_pk))
+        n_unique = df.n_unique()
+        if n_unique < table.num_rows:
+            # Find one duplicated row for a useful warning message
+            dup_mask = df.is_duplicated()
+            if dup_mask.any():
+                first_dup = df.filter(dup_mask).row(0, named=True)
                 warnings.warn(
-                    f"Duplicate primary key in {schema.filename}: "
-                    f"{dict(zip(present_pk, key))}"
+                    f"Duplicate primary key in {schema.filename}: {first_dup}"
                 )
                 return  # warn once per file, not per duplicate
             seen.add(key)
