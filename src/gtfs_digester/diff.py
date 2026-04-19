@@ -8,7 +8,7 @@ Diffing is hierarchical:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import polars as pl
 import pyarrow as pa
@@ -16,12 +16,20 @@ import pyarrow as pa
 
 @dataclass
 class FileDiff:
-    """Row-level diff for a single modified GTFS file."""
+    """Row-level diff for a single modified GTFS file.
+
+    ``added_columns`` and ``removed_columns`` surface schema-level drift —
+    columns present on exactly one side. They can't participate in per-row
+    comparison (no opposite-side value), so their appearance here is the only
+    signal a caller gets that a file's column set changed.
+    """
 
     filename: str
     added: pa.Table
     removed: pa.Table
     modified: pa.Table
+    added_columns: list[str] = field(default_factory=list)
+    removed_columns: list[str] = field(default_factory=list)
 
     @property
     def added_count(self) -> int:
@@ -36,11 +44,19 @@ class FileDiff:
         return self.modified.num_rows
 
     def summary(self) -> str:
-        return (
+        base = (
             f"+{self.added_count} added, "
             f"-{self.removed_count} removed, "
             f"~{self.modified_count} modified"
         )
+        if not self.added_columns and not self.removed_columns:
+            return base
+        drift_parts = []
+        if self.added_columns:
+            drift_parts.append(f"+{', +'.join(self.added_columns)}")
+        if self.removed_columns:
+            drift_parts.append(f"-{', -'.join(self.removed_columns)}")
+        return f"{base}; schema: {' '.join(drift_parts)}"
 
 
 @dataclass
@@ -93,6 +109,12 @@ def compute_file_diff(
 
     old_df = pl.from_arrow(old_table)
     new_df = pl.from_arrow(new_table)
+
+    # Schema-level drift (preserves relative new/old column order)
+    old_cols_set = set(old_df.columns)
+    new_cols_set = set(new_df.columns)
+    added_columns = [c for c in new_df.columns if c not in old_cols_set]
+    removed_columns = [c for c in old_df.columns if c not in new_cols_set]
 
     # Only use PK columns that actually exist in both tables
     pk_cols = [c for c in primary_key if c in old_df.columns and c in new_df.columns]
@@ -149,6 +171,8 @@ def compute_file_diff(
         added=added.to_arrow(),
         removed=removed.to_arrow(),
         modified=modified.to_arrow(),
+        added_columns=added_columns,
+        removed_columns=removed_columns,
     )
 
 
@@ -157,11 +181,35 @@ def _diff_no_pk(filename: str, old_table: pa.Table, new_table: pa.Table) -> File
     old_df = pl.from_arrow(old_table)
     new_df = pl.from_arrow(new_table)
 
-    cols = list(new_df.columns)
-    # Full-row composite key covering every column
+    old_cols_set = set(old_df.columns)
+    new_cols_set = set(new_df.columns)
+    added_columns = [c for c in new_df.columns if c not in old_cols_set]
+    removed_columns = [c for c in old_df.columns if c not in new_cols_set]
+
+    # Row comparison only works on the shared column set; columns present on
+    # only one side are surfaced separately via added_columns/removed_columns.
+    cols = [c for c in new_df.columns if c in old_cols_set]
+
+    if not cols:
+        # No overlap at all — nothing to hash for presence. Treat as empty
+        # row-level diff; schema drift fields still communicate what changed.
+        empty = new_table.slice(0, 0)
+        return FileDiff(
+            filename=filename,
+            added=empty,
+            removed=old_table.slice(0, 0),
+            modified=empty,
+            added_columns=added_columns,
+            removed_columns=removed_columns,
+        )
+
+    old_shared = old_df.select(cols)
+    new_shared = new_df.select(cols)
+
+    # Full-row composite key covering every shared column
     row_key = pl.concat_str(cols, separator=_KEY_SEP).alias("__row__")
-    old_keyed = old_df.with_columns(row_key)
-    new_keyed = new_df.with_columns(row_key)
+    old_keyed = old_shared.with_columns(row_key)
+    new_keyed = new_shared.with_columns(row_key)
 
     added = (
         new_keyed.join(old_keyed.select("__row__"), on="__row__", how="anti")
@@ -179,4 +227,6 @@ def _diff_no_pk(filename: str, old_table: pa.Table, new_table: pa.Table) -> File
         added=added.to_arrow(),
         removed=removed.to_arrow(),
         modified=new_table.slice(0, 0),
+        added_columns=added_columns,
+        removed_columns=removed_columns,
     )

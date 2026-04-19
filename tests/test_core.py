@@ -402,6 +402,10 @@ class TestArchive:
         assert fd.modified_count == 0
         assert fd.added_count == 0
         assert fd.removed_count == 0
+        # Schema drift is surfaced separately
+        assert fd.added_columns == ["stop_code"]
+        assert fd.removed_columns == []
+        assert "schema: +stop_code" in fd.summary()
 
     def test_diff_old_has_extra_column(self):
         """Baseline has a column the candidate dropped — no crash, diff still computable."""
@@ -413,6 +417,19 @@ class TestArchive:
         assert fd.modified_count == 0
         assert fd.added_count == 0
         assert fd.removed_count == 0
+        assert fd.added_columns == []
+        assert fd.removed_columns == ["stop_code"]
+        assert "schema: -stop_code" in fd.summary()
+
+    def test_diff_no_schema_drift_summary(self):
+        """Summary should not mention schema when column sets match (back-compat)."""
+        z1 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon\nS1,Old,40.0,-75.0"})
+        z2 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon\nS1,New,40.0,-75.0"})
+        diff = GTFSArchive.from_zip(z1).diff(GTFSArchive.from_zip(z2))
+        fd = diff.file_diff("stops.txt")
+        assert fd.added_columns == []
+        assert fd.removed_columns == []
+        assert "schema:" not in fd.summary()
 
 
 # ---------------------------------------------------------------------------
