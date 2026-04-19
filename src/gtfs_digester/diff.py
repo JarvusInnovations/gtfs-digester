@@ -110,7 +110,13 @@ def compute_file_diff(
     # Modified: inner join on PK, compare non-PK columns via concatenated hash.
     # Keep all original columns (including PK) on the new side; the old side
     # only contributes the non-PK columns we need to compare against.
-    non_pk_cols = [c for c in new_keyed.columns if c not in pk_cols and c != "__pk__"]
+    # Only compare columns present on both sides — columns added or removed
+    # at the schema level can't be pairwise-compared and would otherwise crash
+    # the select from old_keyed.
+    non_pk_cols = [
+        c for c in new_keyed.columns
+        if c not in pk_cols and c != "__pk__" and c in old_keyed.columns
+    ]
 
     if non_pk_cols:
         old_renamed = old_keyed.select(

@@ -387,6 +387,33 @@ class TestArchive:
         diff = GTFSArchive.from_zip(z1).diff(GTFSArchive.from_zip(z2))
         assert "agency.txt" in diff.added_files
 
+    def test_diff_new_has_extra_column(self):
+        """Candidate adds a non-PK column not present in baseline — should not crash.
+
+        Regression test for JarvusInnovations/sound-transit-gtfs-pipeline#96.
+        """
+        z1 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon\nS1,Main,40.0,-75.0"})
+        z2 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon,stop_code\nS1,Main,40.0,-75.0,CODE1"})
+        diff = GTFSArchive.from_zip(z1).diff(GTFSArchive.from_zip(z2))
+        assert "stops.txt" in diff.modified_files
+        fd = diff.file_diff("stops.txt")
+        # New-only columns can't be pairwise-compared; the shared-PK row has
+        # unchanged values across the common columns, so nothing is flagged.
+        assert fd.modified_count == 0
+        assert fd.added_count == 0
+        assert fd.removed_count == 0
+
+    def test_diff_old_has_extra_column(self):
+        """Baseline has a column the candidate dropped — no crash, diff still computable."""
+        z1 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon,stop_code\nS1,Main,40.0,-75.0,CODE1"})
+        z2 = _make_zip({"stops.txt": "stop_id,stop_name,stop_lat,stop_lon\nS1,Main,40.0,-75.0"})
+        diff = GTFSArchive.from_zip(z1).diff(GTFSArchive.from_zip(z2))
+        assert "stops.txt" in diff.modified_files
+        fd = diff.file_diff("stops.txt")
+        assert fd.modified_count == 0
+        assert fd.added_count == 0
+        assert fd.removed_count == 0
+
 
 # ---------------------------------------------------------------------------
 # Integration: real GTFS feed
