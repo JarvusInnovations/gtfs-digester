@@ -1,0 +1,201 @@
+{
+  "fingerprint_algorithm": "v1",
+  "recorded_with": "gtfs-digester 0.4.0 (Python csv.writer serializer)",
+  "feeds_retrieved": "2026-11-26",
+  "feeds": {
+    "google-sample": {
+      "source": "https://developers.google.com/static/transit/gtfs/examples/sample-feed.zip",
+      "license": "CC-BY-4.0 (Google Developers documentation)",
+      "root": "v1:63c7c48cb0c0ea73bb043e6cd0fe29854f6670536636a51031e61513cf7a2b92",
+      "files": {
+        "agency.txt": "v1:b7b1dff1e2791a2c81e6c0fbdd5a6dd4a14579b93156035adcc367a14af71d6a",
+        "calendar.txt": "v1:e531258014176fcb0310476bcbf572a6ef43afc2f7fe73d57d871c3af4aeb2af",
+        "calendar_dates.txt": "v1:bf7952f78b9452189572bcf32e6dade0e7ca9952f3f8de91d068e50abe281364",
+        "fare_attributes.txt": "v1:9948af7cd5a29569252d5dc79951d62b565d80a19ca1b95c8dc154c3aaeac128",
+        "fare_rules.txt": "v1:9426180af5e5e1bd8cdec62e947ff15765add103eec1029b608e5b9677b8364f",
+        "frequencies.txt": "v1:8b27dd28aaea85cbac7529d7a5ec86bb274aa6e71e9cfad959998e27683662a6",
+        "routes.txt": "v1:c0330f18dd2f9609f5e3324be1eb3a4526d335202ed6c50d30d13dfcb775e2d1",
+        "shapes.txt": "v1:c653347f026314702a40138854e51abb0c17524572a856b2e1d8401e7b264e66",
+        "stops.txt": "v1:93ccd05a75220a1c014eaab557110399491a9a46da7f05fd68ad73cf78ec400c",
+        "trips.txt": "v1:a8f43338bfd7976771689aecf8ecb56fe11eddddb9f59caf2ae93ae3b6d4bcbb"
+      }
+    },
+    "akishima-abus": {
+      "source": "https://api.gtfs-data.jp/v2/organizations/akishimacity/feeds/Abus/files/feed.zip?rid=current",
+      "license": "CC0-1.0",
+      "root": "v1:81332ca7f8493e6df65fc04b930abf79e70ad812ab174d6086baaceccac6b1bb",
+      "files": {
+        "agency.txt": "v1:c6816679613955f40784f0010e5cdbf0629caedd595ae467a64c24b07631b64a",
+        "calendar.txt": "v1:a00640a30433f98640a9269696f77d4fbd2bcabd0254e1409d2f9662a6b97c03",
+        "calendar_dates.txt": "v1:baab88fbeca9b6f9e7a5d60e4ff99edfe2b7f1d253b67f3f9c50bf3a8319dfde",
+        "fare_attributes.txt": "v1:a140049e50847157adcf76c80e1f89408fc77b67b98c8c1df80c1d06f39d0a2d",
+        "fare_rules.txt": "v1:047dbf0d84e3d07dfbff94398b5c39bc31160d021456fcb4a80010112e64f71e",
+        "feed_info.txt": "v1:d84bcb3b2cf556400e96364968b137b8aea2ba3436e16ddd082444d71b5b12b8",
+        "routes.txt": "v1:5b9c55385770fe24e33a91a6c0bca66211e48f9accda87df69a30cb46cda205d",
+        "stop_times.txt": "v1:1a02e89fc58894ef1f1f614717883d17ba15aebb032ed63625841f4176870932",
+        "stops.txt": "v1:d8fa81f0334c8ae916d611707d3f0191a4e195b0f1e34cf2e17aa640054d5932",
+        "transfers.txt": "v1:67eed0e00a2726d55f803e71da2cb2f6a911a009be839c8852cf7c127d6134f7",
+        "translations.txt": "v1:5b4707daed384e4e981a3b61aac7ad1e136dcf2c989311cb382475976031204d",
+        "trips.txt": "v1:6039578de671c2c2923e7bdb405ad4ec24e817a6dd070f60793630c81e94843b"
+      }
+    },
+    "los-reginas": {
+      "source": "https://github.com/juanmacuevas/ferrynorte-gtfs/releases/download/los-reginas/los-reginas_gtfs.zip",
+      "license": "CC-BY-4.0",
+      "root": "v1:df28016dc3515d5400305fd4cf872c9dea2bef66ee6a24862c4473ef727db1ee",
+      "files": {
+        "agency.txt": "v1:e96cff5f61f2459ef531d773af61229368879bbfe299c478e5bb582720f44af4",
+        "calendar.txt": "v1:69812b31eaff199adcec12c849200043d34213167eaecd6e57b4f31c753fda90",
+        "calendar_dates.txt": "v1:9f8e80546c99e7d7f4aab146295ab33ad08915f60fdc666e13799a905f06a103",
+        "fare_attributes.txt": "v1:3050b6698885a05363d9ccbd2fe309d59e774cf4ba14ec8f3a74895af50d0d51",
+        "fare_rules.txt": "v1:76ac7e9811e452ab5031fb1ad46ff11037923526acaeb892579f51ad033be861",
+        "feed_info.txt": "v1:471bd34de7f8fb291ec5edcbe67fe9ad78ee13b772a43d5408cb2f7b9ee43f76",
+        "routes.txt": "v1:afa7336aa11580ca2696480777db20b75ac4413e0bbcad578765f4eb2a2b5523",
+        "shapes.txt": "v1:3f4a85aae97c924f396d2f30376aef39c5932466c47c4d286a95ef28babb06dd",
+        "stop_times.txt": "v1:c3b99a5c0f04d60e67d58de19ab43489bb1c92e5018cd227532a33b0ca25f005",
+        "stops.txt": "v1:867ecc0f151fb97666e476bb5254c6835951cf1f257fa555ac99f8163057ff12",
+        "trips.txt": "v1:cdbfda32c59617b5bf5d8cf6e004dc9b75b33aed5cf8fac51c7ecc4805c97821"
+      }
+    },
+    "mi-teleferico": {
+      "source": "https://datosbolivia.github.io/gtfs/mi-teleferico.zip",
+      "license": "CC-BY-4.0",
+      "root": "v1:1422e7ff85e15318364b5646b4584961716a4492ba80d8d40774c3ad6f93da55",
+      "files": {
+        "agency.txt": "v1:b68bf98dc6f877261fa088086eebc5a4bdf6ca39268a88bdedf7daa0ef542e5b",
+        "areas.txt": "v1:82097f4dd1d67fb7b96b1c1f6e213f34c9b7c131c2bf570fb65b99f551726d78",
+        "attributions.txt": "v1:3feda8366c03d907471839c96cfcb147c9dec613889e273dc2ecae0e0dac292e",
+        "calendar.txt": "v1:61543e34a078857fb8e26e795c9fb4293fcd914c79f68072f4f75dc3104f2a5b",
+        "calendar_dates.txt": "v1:0b6fcc4ee8e24311ae5821ec9154e0d61c00af3461cdeed2a03f4765ab710693",
+        "fare_leg_rules.txt": "v1:d975f67808198c4645f9df8c04ad57a91173c79b70f03bd8d37a130f2ab11a49",
+        "fare_media.txt": "v1:6778cd1eb772f3617da198f90ac5358bdd113af6a2448b5018e9a2655ec41f4e",
+        "fare_products.txt": "v1:d2cd81f2573212335be37591d34e04fa645bce9993a8222f3cc2f1d0b0881416",
+        "fare_transfer_rules.txt": "v1:b73fd59806236729d25c0c42c1033b78e3cedf89db634a3db4f021d3ba8e6a65",
+        "feed_info.txt": "v1:b1c5ae803c9fba4134a1d1ecb6bfece4eab6143e9dddb5374d04d26e664f1bf4",
+        "frequencies.txt": "v1:42be63d3e73c417f7cfdf8a08eb99a876ae7ea8f468c12327da8642a71780866",
+        "rider_categories.txt": "v1:110ae1634da75531bf281593a7523ec456c5ea7e2888c72eb1d33ec70a1a2faa",
+        "routes.txt": "v1:6330485ea0b3dfa0425d3a1ab7f4a965efa3f5c22c60d543ea827c30d93e502f",
+        "shapes.txt": "v1:da5160a37355d34990c44857d5be0fee5c67ae0d5288c06a8a5867cb67c5fd6e",
+        "stop_areas.txt": "v1:98020e920b0db5d8ed217e77d3b62618f334cac24aceb60210c57f0eebe827a6",
+        "stop_times.txt": "v1:99dd5de69769041e7b7baf14f2f65c45927a087425c19d54b18473b6b02e12ae",
+        "stops.txt": "v1:316bdc1f930308043d9f3335d1de1a275f6a72402d229855c2014a11943774ab",
+        "translations.txt": "v1:bdc6b944d3d92df50f2b9a529496386bcf8c09ea764d63bb1419d9398c4d797f",
+        "trips.txt": "v1:6d0ae6e18c25703c2aeb74f96a1b145942d1ff5c9ae139242829a541ed2d25b4"
+      }
+    },
+    "mv-shuttle": {
+      "source": "https://gtfs.mvcommunityshuttle.com/gtfs.zip",
+      "license": "ODC-By-1.0",
+      "root": "v1:fd050d807abeac73e04f055f445117eda6c95b181a00c1131da9a31d2ca7b9f3",
+      "files": {
+        "agency.txt": "v1:5b542ed31fdddb1dafa357c202d4b3c61839e7e66d9c9aa94d9e9fb7d878653c",
+        "calendar.txt": "v1:b6c0c6423d9f197c0dd9d06925c47ae19bfffab9edf4ca1885f2d7c22862c233",
+        "calendar_attributes.txt": "v1:47949fc44b868921a769fb9b8a360b36d4758e3ff75cb893f8135c94a4b8991b",
+        "calendar_dates.txt": "v1:323c7e806e8753a23bf6403fc9e296d56560b8edafb3504486537410d1136234",
+        "directions.txt": "v1:a307c6415de0099c29b6e4d282595e39e4a8472bbea47df423353767af28cee1",
+        "fare_attributes.txt": "v1:52f9161bc939d2a49014cda85afbbf1ea4934c6f216a0159c87b929d6d1c8a32",
+        "feed_info.txt": "v1:be07080362bccf83caa353269a7f5520dfdc6fa0dee9798f33edbd1e7f59aa2e",
+        "linked_datasets.txt": "v1:1f7c2f9a86d43270adafe8f5ec0bf601c7f37564c8338dbe94b47065c2507fb4",
+        "route_attributes.txt": "v1:40158ad18e44dc9ddc86aa2e00984f9e7eb8bf90be9bd516e711593d31763280",
+        "routes.txt": "v1:57e7e0073703b71ab5a687cf75825eb7d9746391ed9daed09503f62ad1f5c1e7",
+        "shapes.txt": "v1:bcf14203947ef362e9ffa9f3ca8fe0bbbdc22415d37fe288de910a68a8084495",
+        "stop_times.txt": "v1:cfc84042f0d795642473c0398fc658e7508db59d3ed6e6cbbc19571863baa7e0",
+        "stops.txt": "v1:88bfe1521934ed6da70f0393b0411dd67ac77f2e21905eb28fec146f42ec0d1a",
+        "timetable_pages.txt": "v1:b70402c8117ddf46bb945d8bc2c40c152dc742f04ea3c29110558c82d9c87c65",
+        "timetables.txt": "v1:ad6347e38b2f717f25723a47f6380a4ed24fdd4387a060725e982f08bca4bfce",
+        "trips.txt": "v1:9108b4ddd7f1ec2e9b09cd48cc635a16f28a7786c385c7a74402383916138252"
+      }
+    },
+    "sf-bay-ferry": {
+      "source": "https://gtfs.sanfranciscobayferry.com/gtfs.zip",
+      "license": "ODC-By-1.0",
+      "root": "v1:06e91b17284b260c2d1cfa7a23f46182cd0b44860e765be2986e91a75f3d3358",
+      "files": {
+        "agency.txt": "v1:4b1f28b6d94bbf9b2f9c3ba5ab265b15f66c47046a61f2eba06ff6cd0fb54b1a",
+        "calendar.txt": "v1:d837168906175d7b66a483feae7bcd1aed9ec7205145bec5e9094cd3e6ae3bba",
+        "calendar_attributes.txt": "v1:f8c52130db4ab186678b64e5b17640dd0d1d6bec6b2b90a9fafe5ee5db4b7bc0",
+        "calendar_dates.txt": "v1:7243e93388516eaf0fd6731f3235891520e863229cb1c053b64128b0ff037b19",
+        "deadhead_times.txt": "v1:03331afb1a51156896f14b3ea5261087d78bbe66bd10b365620993d5297b98b4",
+        "deadheads.txt": "v1:99f53855246ba48cf672e1c3c365af1c66d06bb2b996b6e678285befee4932bb",
+        "directions.txt": "v1:4a3a353e90f817248583e8fb672cb56dc49f7372f00f407edffac8f1c335655d",
+        "fare_attributes.txt": "v1:827868c8d2b801ae6954c38addad4ccf0eb7aec4299fc0cdc65ca807081b19c5",
+        "fare_rules.txt": "v1:d4e9ce8269dba3e8894c115770f02668369fd4f23fc5bf9886494a44849555a8",
+        "feed_info.txt": "v1:313f5358ce15e0b956dedb8727bf343f387514989666448389fa09d7c68bfee3",
+        "ops_locations.txt": "v1:f3537ddecd848e7c7ff584b751c16188c1aa5dfe7949ed70d7d70b4155ff707c",
+        "routes.txt": "v1:672fef3389775b8c8ad7a67ea8467a3809b7583ef1284083d298a0465fc090b0",
+        "shapes.txt": "v1:42188faf1414f0999904b53850382411553c032898cd30261e74432bd7b8ec50",
+        "stop_times.txt": "v1:3e05ec7d4bdd16c69c27bb14b6b0301b6b64231aac7f2e1ff77909626a2ed49c",
+        "stops.txt": "v1:42d168ce6e6eccac07676f6fe3e4efed0c25180021b41030fe6400c923a96de1",
+        "trips.txt": "v1:4ba94aa4559489d86075a025db24b1bd0af5ca266b3a81a90dbf61b394d5dc4b"
+      }
+    },
+    "zyrardow": {
+      "source": "https://github.com/minkowskimaciej/zyrardow/raw/main/zyrardow.zip",
+      "license": "CC0-1.0",
+      "root": "v1:bd20577b4cfcc1ab8c91b18109cff144b72dd7da121e63f3a4adc467cc6bf389",
+      "files": {
+        "agency.txt": "v1:f982738bd6c63574f877aba89c06504d27c6d96f3db62ade6d3b1f02ab812252",
+        "calendar.txt": "v1:0df7a48342456ea523cda94eb8a3bbbbf28865ab1047976a0a5829108ce7b7a2",
+        "calendar_dates.txt": "v1:c7fe282ecd7da642d84f4b29bfacb6dcc0c7f864cdc22df24e87d909f6deb91f",
+        "feed_info.txt": "v1:da8cfaba4cbbd96206b7ac716e37f14abf34f95ed0b8caed1ab34ea561618e89",
+        "routes.txt": "v1:9cea96dcea111c11d9b4bbd3a37950ee0d7907409f3135cee5fe2645b8624929",
+        "shapes.txt": "v1:8bbf4e6f6b889d8eea36ec326bf898d6fe9bf69e8afea73d5fa96f9e1037c70f",
+        "stop_times.txt": "v1:eb6c29e24b8c014f720b37489fc975bb7e597290710018cad806ed1df48376df",
+        "stops.txt": "v1:5449123bc945b74abc36eae3817f121fa7760ff0942d0d80e8d2775792662ecb",
+        "trips.txt": "v1:722a9c3b370f179db565fe5e4526c151166fed0e1fb7112226a28c38b4bf4f6f"
+      }
+    }
+  },
+  "edge": {
+    "single-column-empty": {
+      "root": "v1:1bbc2013bec4aa879bdf343e6e4afecad781b409d4454d93243f1cad0c123ab0",
+      "files": {
+        "levels.txt": "v1:772f2232cf38dd5bd785eb1234894fef62b5ec599ab149f2c2ac8f24a7e4029b",
+        "notes.txt": "v1:1fb82dd8b3688b07598f9bf2b54682bd78fcfe72f85ab52386d9a68bc40e5122"
+      }
+    },
+    "embedded-carriage-return": {
+      "root": "v1:7fa45c0c2e867d906b6fc0bf07c52caa6540dffa78dae1d8cb7736b885e5c23f",
+      "files": {
+        "agency.txt": "v1:bac0859cd42ac274b59c180ecb74e434f7b10681a9ad264c710a288ff12fdfd0",
+        "stops.txt": "v1:240b76df6427783e4efe05c2a20f1d6b811af9ab52d2625eac59245de1d17956"
+      }
+    },
+    "empty-vs-null": {
+      "root": "v1:6c52f79d807c66f845d89d3e4948f98bab409a5a6f6f2d839ed7348b17ba08f2",
+      "files": {
+        "extra_values.txt": "v1:51f2a890f6f30fa9c85f8769f8f97cb5db702faaed3e07626afb7f2ad793cef3",
+        "trips.txt": "v1:65fdd40bc36681065babf73022d675aca59e4db21394657ef7ba36001085ffd1"
+      }
+    },
+    "time-padding": {
+      "root": "v1:3f59a4b9e0d8395588b7d4e6fab8a318ebc1478aceda571dc2e2808eaa9fa248",
+      "files": {
+        "frequencies.txt": "v1:8c283f22e75eb4794d1a2066859c28f9782c44dcaba4ae2bb61331d72d8df5db",
+        "stop_times.txt": "v1:669590450e89148fc5aec9ffec5586f5c3d176726369d0b2254a40fb03f1ec93"
+      }
+    }
+  },
+  "arrow": {
+    "arrow-empty-vs-null": {
+      "root": "v1:f010d93a3e71fa24778210010000d5d73d138ca7d94f7148821422e0727ae2c2",
+      "files": {
+        "notes.txt": "v1:c5a38d17d5688bcee9cfeb880ab60b4cfdbfa9c31ec5da5c040b67c93f732a25",
+        "trips.txt": "v1:65fdd40bc36681065babf73022d675aca59e4db21394657ef7ba36001085ffd1"
+      }
+    },
+    "arrow-embedded-carriage-return": {
+      "root": "v1:c3ac44da18cec79aa76a7dab439f60fc3b5806a20aeccde4d2af1e26329958ea",
+      "files": {
+        "stops.txt": "v1:302772dc1fa72dead2bc5dc8695f47f257ac908c471a90b379c69890dc1c79f5"
+      }
+    },
+    "raw-constructor-nulls": {
+      "root": "v1:e34af8e54a0f08f311ec868695728a55181aa76fee3609843a7527aaf9e3ffb5",
+      "files": {
+        "multi.txt": "v1:716c58c6b1cccc4d0887f0eaf8c6dcef72e2385ccab75a4a92b0fcd75b0d2ff0",
+        "single.txt": "v1:8d0274e92d5d2b71be02f842c5de1910e6b782519ecfa75ccba21d3bd5843386"
+      }
+    }
+  }
+}
