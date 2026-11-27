@@ -1,0 +1,7 @@
+stop_id,stop_name,stop_desc,stop_lat,stop_lon
+S1,"Main St","first linesecond line",40.0,-75.0
+S2,"Oak, Elm","crlf
+inside",40.1,-75.1
+S3,"Say ""hi""","lf
+inside",40.2,-75.2
+S4,Plain,"trailing cr",40.3,-75.3

@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import warnings
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pyarrow as pa
 
@@ -109,6 +111,28 @@ class GTFSArchive:
 
         return GTFSArchive(files=files)
 
+    @staticmethod
+    def from_tables(tables: Mapping[str, Any]) -> GTFSArchive:
+        """Build a GTFS archive from in-memory tables, with no zip or CSV round-trip.
+
+        Args:
+            tables: Mapping of filename (e.g. "stops.txt") to a table whose
+                columns are all strings: a ``pyarrow.Table``, or any object that
+                exports an Arrow stream (``__arrow_c_stream__``), such as a polars
+                DataFrame.
+
+        Each table goes through GTFSFile.from_arrow_table, so the fingerprint
+        equals the one from_zip gives for a zip whose CSV files parse to the
+        same strings. A table with non-string columns raises TypeError.
+        """
+        files: dict[str, GTFSFile] = {}
+        for filename in sorted(tables):
+            table = tables[filename]
+            if not isinstance(table, pa.Table):
+                table = pa.table(table)
+            files[filename] = GTFSFile.from_arrow_table(filename, table, get_schema(filename))
+        return GTFSArchive(files=files)
+
     @property
     def filenames(self) -> set[str]:
         """Set of filenames in this archive."""
@@ -143,9 +167,9 @@ class GTFSArchive:
 
         with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
             for filename in sorted(self._files.keys()):
-                gtfs_file = self._files[filename]
-                csv_bytes = gtfs_file.to_canonical_csv()
-                zf.writestr(filename, csv_bytes)
+                with zf.open(filename, "w") as member:
+                    for chunk in self._files[filename].iter_canonical_csv():
+                        member.write(chunk)
 
             zf.writestr(".gtfs_digester.json", fp.to_json())
 
