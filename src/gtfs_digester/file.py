@@ -188,8 +188,11 @@ CANONICAL_CSV_CHUNK_ROWS = 200_000
 def _iter_canonical_csv(table: pa.Table) -> Iterator[bytes | memoryview]:
     """Stream canonical CSV bytes from an Arrow table without Python row objects.
 
-    Each slice of the Arrow table (zero-copy) goes through polars'
-    ``write_csv(quote_style="necessary")``, which quotes a field exactly when
+    The header row is written by Python's csv.writer, as the reference writes
+    it, so column names come out exactly (polars would rename an empty name to
+    ``column_N``). The data rows go through polars'
+    ``write_csv(quote_style="necessary", include_header=False)`` one zero-copy
+    slice of the Arrow table at a time. Polars quotes a field exactly when
     Python's csv.writer does (it contains a comma, a double quote, CR or LF),
     with one difference: polars writes an empty string as ``""`` and a null as
     nothing, while csv.writer writes an empty string as nothing unless it is the
@@ -203,9 +206,26 @@ def _iter_canonical_csv(table: pa.Table) -> Iterator[bytes | memoryview]:
         yield _reference_canonical_csv(table)
         return
 
+    header = io.StringIO()
+    csv.writer(header, lineterminator="\n", quoting=csv.QUOTE_MINIMAL).writerow(table.column_names)
+    yield header.getvalue()[:-1].encode("utf-8")
+
+    # Positional names keep polars from renaming or rejecting empty and
+    # repeated names; string_view columns become large_string because polars
+    # cannot import chunked string_view arrays reliably.
+    table = table.rename_columns([f"c{i}" for i in range(table.num_columns)])
+    if any(pa.types.is_string_view(t) for t in table.schema.types):
+        table = table.cast(
+            pa.schema(
+                [
+                    pa.field(f.name, pa.large_string() if pa.types.is_string_view(f.type) else f.type)
+                    for f in table.schema
+                ]
+            )
+        )
+
     multi_column = table.num_columns > 1
-    first = True
-    for offset in range(0, max(table.num_rows, 1), CANONICAL_CSV_CHUNK_ROWS):
+    for offset in range(0, table.num_rows, CANONICAL_CSV_CHUNK_ROWS):
         part = pl.from_arrow(table.slice(offset, CANONICAL_CSV_CHUNK_ROWS), rechunk=False)
         assert isinstance(part, pl.DataFrame)
         if multi_column:
@@ -213,28 +233,23 @@ def _iter_canonical_csv(table: pa.Table) -> Iterator[bytes | memoryview]:
         else:
             part = part.fill_null("")
         buf = io.BytesIO()
-        part.write_csv(buf, include_header=first, quote_style="necessary", line_terminator="\n")
+        part.write_csv(buf, include_header=False, quote_style="necessary", line_terminator="\n")
         del part
         data = buf.getbuffer()
         if not data:
             continue
-        if not first:
-            yield b"\n"
+        yield b"\n"
         # Every slice ends with the line terminator; hold it back so the
         # serialization has no trailing newline.
         yield data[:-1] if data[-1:] == b"\n" else data
-        first = False
 
 
 def _is_streamable(table: pa.Table) -> bool:
     """True when the streamed writer reproduces the reference bytes for this table.
 
-    The streamed writer handles string columns with unique names, which is every
-    table GTFSFile builds; anything else uses the reference serializer.
+    The streamed writer handles tables whose columns are all strings, which is
+    every table GTFSFile builds; anything else uses the reference serializer.
     """
-    names = table.column_names
-    if len(set(names)) != len(names):
-        return False
     return all(
         pa.types.is_string(t) or pa.types.is_large_string(t) or pa.types.is_string_view(t)
         for t in table.schema.types

@@ -39,14 +39,17 @@ def _random_value(rng: random.Random) -> str | None:
     return "".join(rng.choice(PIECES) for _ in range(rng.randint(1, 4)))
 
 
+# Column names, including the ones polars would rename or reject: empty,
+# polars' own default names, quoting triggers, and repeats.
+NAMES = ["", "", "column_0", "column_1", "c0", "a,b", 'q"', "n\nl", " sp ", "é", "stop_id"]
+
+
 def _random_table(rng: random.Random, string_type: pa.DataType) -> pa.Table:
     ncols = rng.randint(1, 4)
     nrows = rng.randint(0, 40)
-    suffixes = ["", ",", '"', " x"]
-    names = ["c" + str(i) + rng.choice(suffixes) for i in range(ncols)]
-    return pa.table(
-        {name: pa.array([_random_value(rng) for _ in range(nrows)], type=string_type) for name in names}
-    )
+    names = [rng.choice(NAMES) if rng.random() < 0.5 else f"c{i}" for i in range(ncols)]
+    arrays = [pa.array([_random_value(rng) for _ in range(nrows)], type=string_type) for _ in names]
+    return pa.Table.from_arrays(arrays, names=names)
 
 
 @pytest.fixture
@@ -81,6 +84,27 @@ class TestStreamedMatchesReference:
     def test_edge_tables(self, small_slices, columns):
         table = pa.table(columns)
         assert GTFSFile("x.txt", table).to_canonical_csv() == file_mod._reference_canonical_csv(table)
+
+    @pytest.mark.parametrize(
+        "names",
+        [["stop_id", "stop_name", ""], ["", "a", "b"], ["agency_id", "", "agency_name"], [""], ["", ""], ["x", "x"]],
+    )
+    def test_empty_and_repeated_column_names(self, small_slices, names):
+        arrays = [pa.array(["v", "", None, "w,z"] * 4, type=pa.string()) for _ in names]
+        table = pa.Table.from_arrays(arrays, names=names)
+        assert GTFSFile("x.txt", table).to_canonical_csv() == file_mod._reference_canonical_csv(table)
+
+    def test_chunked_string_view_table(self, small_slices):
+        chunks = [["a", "", None, "b,c"], ["d\re", "", "f"], []]
+        table = pa.table(
+            {
+                "a": pa.chunked_array(chunks, type=pa.string_view()),
+                "b": pa.chunked_array([["1"] * 4, ["2"] * 3, []], type=pa.string_view()),
+            }
+        )
+        single = pa.table({"only": pa.chunked_array(chunks, type=pa.string_view())})
+        for t in (table, single):
+            assert GTFSFile("x.txt", t).to_canonical_csv() == file_mod._reference_canonical_csv(t)
 
     def test_zero_columns(self):
         assert GTFSFile("x.txt", pa.table({})).to_canonical_csv() == b""

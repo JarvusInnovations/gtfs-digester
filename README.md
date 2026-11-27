@@ -116,6 +116,7 @@ difference changes the digest.
 | --- | --- |
 | Encoding | UTF-8, no byte-order mark (a BOM in the input is removed). |
 | Rows | A header row of column names, then one row per record. |
+| Header row | Column names are written exactly as they are, empty names included (a trailing-comma header stays `stop_id,stop_name,`), with the same quoting rules as values. |
 | Column order | Known files: the spec columns that are present, in spec order, then any other columns sorted by code point. Unknown files: all columns sorted by code point. |
 | Row order | Known files: by the primary key columns, then by the remaining columns, ascending; columns the schema marks numeric compare as numbers, the rest as strings. Unknown files: by every column, as strings. |
 | Values | Strings only, after normalization: leading and trailing space, tab, CR and LF removed; times in time columns zero-padded (`9:05:00` becomes `09:05:00`). No other change: numbers keep their written form. |
@@ -144,8 +145,9 @@ polars `write_csv(quote_style="necessary", line_terminator="\n")`. Polars quotes
 the same characters as the reference. It writes an empty string as `""` and a
 null as nothing, which is the reverse of the reference for empty values, so
 empty strings become null before writing in tables with more than one column,
-and nulls become empty strings in single-column tables. No Python object is
-created per value. Tables with non-string columns or repeated column names fall
+and nulls become empty strings in single-column tables. The header row is written by the
+reference writer, so column names come out exactly (polars would rename an empty
+name). No Python object is created per value. Tables with non-string columns fall
 back to the reference writer.
 
 `tests/test_golden.py` pins the root and per-file digests of seven public feeds
