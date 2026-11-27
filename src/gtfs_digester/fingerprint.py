@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 import blake3 as _blake3
 
-
 FINGERPRINT_VERSION = "v1"
 
 

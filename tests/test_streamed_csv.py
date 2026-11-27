@@ -19,15 +19,32 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.csv
 import pytest
-
-from gtfs_digester import GTFSArchive, GTFSFile, file as file_mod
-from gtfs_digester.normalize import _normalize_time_column, normalize_time_value
-
 from golden_cases import EXPECTED_FEED_DIGESTS, FEED_SOURCES, FEEDS
+
+from gtfs_digester import GTFSArchive, GTFSFile
+from gtfs_digester import file as file_mod
+from gtfs_digester.normalize import _normalize_time_column, normalize_time_value
 
 # Pieces that exercise each quoting rule: separator, quote, CR, LF, CRLF,
 # whitespace (never quoted), non-ASCII, and characters csv.writer leaves alone.
-PIECES = ["", ",", '"', "\r", "\n", "\r\n", " ", "\t", "a", "Z9", "é", "昭島", "#", "'", ";", "\\"]
+PIECES = [
+    "",
+    ",",
+    '"',
+    "\r",
+    "\n",
+    "\r\n",
+    " ",
+    "\t",
+    "a",
+    "Z9",
+    "é",
+    "昭島",
+    "#",
+    "'",
+    ";",
+    "\\",
+]
 
 
 def _random_value(rng: random.Random) -> str | None:
@@ -41,14 +58,29 @@ def _random_value(rng: random.Random) -> str | None:
 
 # Column names, including the ones polars would rename or reject: empty,
 # polars' own default names, quoting triggers, and repeats.
-NAMES = ["", "", "column_0", "column_1", "c0", "a,b", 'q"', "n\nl", " sp ", "é", "stop_id"]
+NAMES = [
+    "",
+    "",
+    "column_0",
+    "column_1",
+    "c0",
+    "a,b",
+    'q"',
+    "n\nl",
+    " sp ",
+    "é",
+    "stop_id",
+]
 
 
 def _random_table(rng: random.Random, string_type: pa.DataType) -> pa.Table:
     ncols = rng.randint(1, 4)
     nrows = rng.randint(0, 40)
     names = [rng.choice(NAMES) if rng.random() < 0.5 else f"c{i}" for i in range(ncols)]
-    arrays = [pa.array([_random_value(rng) for _ in range(nrows)], type=string_type) for _ in names]
+    arrays = [
+        pa.array([_random_value(rng) for _ in range(nrows)], type=string_type)
+        for _ in names
+    ]
     return pa.Table.from_arrays(arrays, names=names)
 
 
@@ -59,13 +91,17 @@ def small_slices(monkeypatch):
 
 
 class TestStreamedMatchesReference:
-    @pytest.mark.parametrize("string_type", [pa.string(), pa.large_string(), pa.string_view()])
+    @pytest.mark.parametrize(
+        "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+    )
     def test_generated_tables(self, small_slices, string_type):
         rng = random.Random(1760)
         for _ in range(150):
             table = _random_table(rng, string_type)
             streamed = GTFSFile("x.txt", table).to_canonical_csv()
-            assert streamed == file_mod._reference_canonical_csv(table), table.to_pylist()
+            assert streamed == file_mod._reference_canonical_csv(table), (
+                table.to_pylist()
+            )
 
     @pytest.mark.parametrize(
         "columns",
@@ -83,35 +119,52 @@ class TestStreamedMatchesReference:
     )
     def test_edge_tables(self, small_slices, columns):
         table = pa.table(columns)
-        assert GTFSFile("x.txt", table).to_canonical_csv() == file_mod._reference_canonical_csv(table)
+        assert GTFSFile(
+            "x.txt", table
+        ).to_canonical_csv() == file_mod._reference_canonical_csv(table)
 
     @pytest.mark.parametrize(
         "names",
-        [["stop_id", "stop_name", ""], ["", "a", "b"], ["agency_id", "", "agency_name"], [""], ["", ""], ["x", "x"]],
+        [
+            ["stop_id", "stop_name", ""],
+            ["", "a", "b"],
+            ["agency_id", "", "agency_name"],
+            [""],
+            ["", ""],
+            ["x", "x"],
+        ],
     )
     def test_empty_and_repeated_column_names(self, small_slices, names):
         arrays = [pa.array(["v", "", None, "w,z"] * 4, type=pa.string()) for _ in names]
         table = pa.Table.from_arrays(arrays, names=names)
-        assert GTFSFile("x.txt", table).to_canonical_csv() == file_mod._reference_canonical_csv(table)
+        assert GTFSFile(
+            "x.txt", table
+        ).to_canonical_csv() == file_mod._reference_canonical_csv(table)
 
     def test_chunked_string_view_table(self, small_slices):
         chunks = [["a", "", None, "b,c"], ["d\re", "", "f"], []]
         table = pa.table(
             {
                 "a": pa.chunked_array(chunks, type=pa.string_view()),
-                "b": pa.chunked_array([["1"] * 4, ["2"] * 3, []], type=pa.string_view()),
+                "b": pa.chunked_array(
+                    [["1"] * 4, ["2"] * 3, []], type=pa.string_view()
+                ),
             }
         )
         single = pa.table({"only": pa.chunked_array(chunks, type=pa.string_view())})
         for t in (table, single):
-            assert GTFSFile("x.txt", t).to_canonical_csv() == file_mod._reference_canonical_csv(t)
+            assert GTFSFile(
+                "x.txt", t
+            ).to_canonical_csv() == file_mod._reference_canonical_csv(t)
 
     def test_zero_columns(self):
         assert GTFSFile("x.txt", pa.table({})).to_canonical_csv() == b""
 
     def test_exact_slice_multiple(self, small_slices):
         table = pa.table({"a": [str(i) for i in range(14)], "b": [""] * 14})
-        assert GTFSFile("x.txt", table).to_canonical_csv() == file_mod._reference_canonical_csv(table)
+        assert GTFSFile(
+            "x.txt", table
+        ).to_canonical_csv() == file_mod._reference_canonical_csv(table)
 
     def test_non_string_table_uses_reference(self):
         table = pa.table({"a": [1, None, 3], "b": ["x", "", None]})
@@ -120,9 +173,11 @@ class TestStreamedMatchesReference:
     def test_fingerprint_hash_streams_same_bytes(self, small_slices):
         from gtfs_digester.fingerprint import hash_bytes
 
-        table = pa.table({"a": [f"v{i}" for i in range(30)], "b": ["", "q,\"r"] * 15})
+        table = pa.table({"a": [f"v{i}" for i in range(30)], "b": ["", 'q,"r'] * 15})
         f = GTFSFile("x.txt", table)
-        assert f.fingerprint_hash() == hash_bytes(file_mod._reference_canonical_csv(table))
+        assert f.fingerprint_hash() == hash_bytes(
+            file_mod._reference_canonical_csv(table)
+        )
 
 
 def _list_based_time_column(column: pa.ChunkedArray) -> list[str]:
@@ -148,19 +203,32 @@ class TestArrowTimePadding:
         values = ["", " ", "abc", "1:2", "24:00:00", "007:05:00", " 7:00:00 ", None]
         for _ in range(5000):
             parts = [
-                "".join(rng.choice("0123456789") for _ in range(rng.randint(0, 4))) for _ in range(3)
+                "".join(rng.choice("0123456789") for _ in range(rng.randint(0, 4)))
+                for _ in range(3)
             ]
             value = ":".join(parts)
             if rng.random() < 0.2:
                 value = rng.choice([" ", "\t"]) + value + rng.choice(["", " ", "\r\n"])
             values.append(value)
         column = pa.chunked_array([values[:2000], values[2000:]], type=pa.string())
-        assert _normalize_time_column(column).to_pylist() == _list_based_time_column(column)
+        assert _normalize_time_column(column).to_pylist() == _list_based_time_column(
+            column
+        )
 
     def test_padded_values_match_per_value_function(self):
-        values = ["5:07:00", "012:3:4", " 7:0:0 ", "24:5:00", "000:1:1", "1:2:3", "100:0:0"]
+        values = [
+            "5:07:00",
+            "012:3:4",
+            " 7:0:0 ",
+            "24:5:00",
+            "000:1:1",
+            "1:2:3",
+            "100:0:0",
+        ]
         column = pa.chunked_array([values], type=pa.string())
-        assert _normalize_time_column(column).to_pylist() == [normalize_time_value(v) for v in values]
+        assert _normalize_time_column(column).to_pylist() == [
+            normalize_time_value(v) for v in values
+        ]
 
 
 def _large_stop_times(rows: int) -> pa.Table:
@@ -171,7 +239,9 @@ def _large_stop_times(rows: int) -> pa.Table:
         departure_time=pl.format("{}:{}:30", (i // 60) % 30, i % 60),
         stop_id=(i % 5000).cast(pl.String),
         stop_sequence=(i % 40).cast(pl.String),
-        stop_headsign=pl.when(i % 3 == 0).then(pl.lit("")).otherwise(pl.lit("Downtown, via 5th")),
+        stop_headsign=pl.when(i % 3 == 0)
+        .then(pl.lit(""))
+        .otherwise(pl.lit("Downtown, via 5th")),
     )
     return df.to_arrow()
 
@@ -186,7 +256,9 @@ class TestLargeTableMemory:
         table = _large_stop_times(self.ROWS)
 
         def no_reference(_table):
-            raise AssertionError("streamed path fell back to the csv.writer reference serializer")
+            raise AssertionError(
+                "streamed path fell back to the csv.writer reference serializer"
+            )
 
         monkeypatch.setattr(file_mod, "_reference_canonical_csv", no_reference)
 
@@ -194,7 +266,9 @@ class TestLargeTableMemory:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                f = GTFSFile.from_arrow_table("stop_times.txt", table, _schema("stop_times.txt"))
+                f = GTFSFile.from_arrow_table(
+                    "stop_times.txt", table, _schema("stop_times.txt")
+                )
             digest = f.fingerprint_hash()
             _, peak = tracemalloc.get_traced_memory()
         finally:
@@ -222,7 +296,9 @@ def _pyarrow_tables(zip_path) -> dict[str, pa.Table]:
             headers = file_mod._get_csv_headers(data)
             try:
                 if b"\n" not in data.strip():
-                    table = pa.table({h: pa.array([], type=pa.string()) for h in headers})
+                    table = pa.table(
+                        {h: pa.array([], type=pa.string()) for h in headers}
+                    )
                 else:
                     table = pyarrow.csv.read_csv(
                         io.BytesIO(data),
@@ -234,7 +310,7 @@ def _pyarrow_tables(zip_path) -> dict[str, pa.Table]:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     GTFSFile.from_arrow_table(name, table, _schema(name))
-            except Exception:
+            except Exception:  # noqa: BLE001, S112 - mirror from_zip, which skips any file it cannot load
                 continue
             tables[name] = table
     return tables
@@ -243,7 +319,13 @@ def _pyarrow_tables(zip_path) -> dict[str, pa.Table]:
 # Feeds whose CSV files polars parses to the same strings as pyarrow. The others
 # have blank lines (polars keeps them as all-null rows) or short rows (polars
 # fills them; pyarrow rejects the file), which changes the tables, not the writer.
-POLARS_CLEAN_FEEDS = ["akishima-abus", "los-reginas", "mi-teleferico", "mv-shuttle", "sf-bay-ferry"]
+POLARS_CLEAN_FEEDS = [
+    "akishima-abus",
+    "los-reginas",
+    "mi-teleferico",
+    "mv-shuttle",
+    "sf-bay-ferry",
+]
 
 
 class TestFromTables:
@@ -260,7 +342,9 @@ class TestFromTables:
     def test_polars_frames_match_zip_digests(self, name):
         with zipfile.ZipFile(FEEDS / f"{name}.zip") as zf:
             frames = {
-                n: pl.read_csv(zf.read(n), infer_schema=False) for n in zf.namelist() if n.endswith(".txt")
+                n: pl.read_csv(zf.read(n), infer_schema=False)
+                for n in zf.namelist()
+                if n.endswith(".txt")
             }
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

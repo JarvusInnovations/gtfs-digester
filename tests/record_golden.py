@@ -30,7 +30,10 @@ def main() -> None:
         "fingerprint_algorithm": "v1",
         "recorded_with": "gtfs-digester 0.4.0 (Python csv.writer serializer)",
         "feeds_retrieved": FEEDS_RETRIEVED,
-        "feeds": {name: {**meta, **digests(load_feed(name))} for name, meta in FEED_SOURCES.items()},
+        "feeds": {
+            name: {**meta, **digests(load_feed(name))}
+            for name, meta in FEED_SOURCES.items()
+        },
         "edge": {name: digests(load_edge(name)) for name in EDGE_CASES},
         "arrow": {name: digests(load_arrow_case(name)) for name in ARROW_CASES},
     }

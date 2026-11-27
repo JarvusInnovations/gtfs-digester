@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from golden_cases import (
     ARROW_CASES,
     EDGE_CASES,

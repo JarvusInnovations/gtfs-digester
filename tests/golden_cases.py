@@ -83,7 +83,12 @@ def _arrow_empty_vs_null() -> GTFSArchive:
         }
     )
     notes = pa.table({"note": ["alpha", None, "", "beta"]})
-    return GTFSArchive({"trips.txt": _known("trips.txt", trips), "notes.txt": _known("notes.txt", notes)})
+    return GTFSArchive(
+        {
+            "trips.txt": _known("trips.txt", trips),
+            "notes.txt": _known("notes.txt", notes),
+        }
+    )
 
 
 def _arrow_embedded_carriage_return() -> GTFSArchive:
@@ -92,7 +97,13 @@ def _arrow_embedded_carriage_return() -> GTFSArchive:
         {
             "stop_id": ["S1", "S2", "S3", "S4", "S5"],
             "stop_name": ["Main St", "Oak, Elm", 'Say "hi"', "Żyrardów", "昭島駅"],
-            "stop_desc": ["first line\rsecond line", "crlf\r\ninside", "lf\ninside", "  padded  ", "\r"],
+            "stop_desc": [
+                "first line\rsecond line",
+                "crlf\r\ninside",
+                "lf\ninside",
+                "  padded  ",
+                "\r",
+            ],
             "stop_lat": ["40.0", "40.1", "40.2", "40.3", "40.4"],
             "stop_lon": ["-75.0", "-75.1", "-75.2", "-75.3", "-75.4"],
         }
@@ -104,7 +115,12 @@ def _raw_constructor_nulls() -> GTFSArchive:
     """GTFSFile built directly (no canonicalization): the serializer writes null as ""."""
     multi = pa.table({"a": ["x", None, "", None], "b": [None, "", "y", None]})
     single = pa.table({"only": ["x", None, "", "z"]})
-    return GTFSArchive({"multi.txt": GTFSFile("multi.txt", multi), "single.txt": GTFSFile("single.txt", single)})
+    return GTFSArchive(
+        {
+            "multi.txt": GTFSFile("multi.txt", multi),
+            "single.txt": GTFSFile("single.txt", single),
+        }
+    )
 
 
 ARROW_CASES = {

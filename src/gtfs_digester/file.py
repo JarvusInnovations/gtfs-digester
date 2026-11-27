@@ -211,7 +211,8 @@ def _iter_canonical_csv(table: pa.Table) -> Iterator[bytes | memoryview]:
     yield header.getvalue()[:-1].encode("utf-8")
 
     # Positional names keep polars from renaming or rejecting empty and
-    # repeated names; string_view columns become large_string because polars
+    # repeated names (repeated names reach here only through the GTFSFile
+    # constructor), so those tables stream the reference bytes; string_view columns become large_string because polars
     # cannot import chunked string_view arrays reliably.
     table = table.rename_columns([f"c{i}" for i in range(table.num_columns)])
     if any(pa.types.is_string_view(t) for t in table.schema.types):
