@@ -134,3 +134,12 @@ def load_arrow_case(name: str) -> GTFSArchive:
 def digests(archive: GTFSArchive) -> dict:
     fp = archive.fingerprint
     return {"root": fp.root_hash, "files": dict(sorted(fp.files.items()))}
+
+
+def expected_feed_digests() -> dict[str, dict]:
+    import json
+
+    return json.loads(GOLDEN.read_text())["feeds"]
+
+
+EXPECTED_FEED_DIGESTS = expected_feed_digests()

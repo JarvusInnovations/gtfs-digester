@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import blake3 as _blake3
@@ -19,6 +20,14 @@ FINGERPRINT_VERSION = "v1"
 def hash_bytes(data: bytes) -> str:
     """Compute BLAKE3 hash of bytes, returning hex string (no version prefix)."""
     return _blake3.blake3(data).hexdigest()
+
+
+def hash_chunks(chunks: Iterable[bytes | memoryview]) -> str:
+    """BLAKE3 of the concatenation of ``chunks``, as hex (no version prefix)."""
+    h = _blake3.blake3()
+    for chunk in chunks:
+        h.update(chunk)
+    return h.hexdigest()
 
 
 @dataclass(frozen=True)

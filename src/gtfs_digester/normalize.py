@@ -53,17 +53,19 @@ def _normalize_column_vectorized(column: pa.Array) -> pa.Array:
     return pc.if_else(pc.is_null(stripped), "", stripped)
 
 
-def _normalize_time_column(column: pa.Array) -> pa.Array:
+def _normalize_time_column(column: pa.Array | pa.ChunkedArray) -> pa.Array | pa.ChunkedArray:
     """Normalize a time column: strip whitespace then zero-pad times.
 
-    Uses vectorized strip + regex for the common case, falls back to
-    per-value for times that need zero-padding.
+    Same result as applying normalize_time_value to every value, computed with
+    Arrow kernels only (no Python values). A value is padded when it matches
+    H:M:S with a 1-3 digit hour and 1-2 digit minutes and seconds and is not
+    already HH:MM:SS / HHH:MM:SS. Padding formats each part the way
+    ``f"{int(part):02d}"`` does: minutes and seconds are left-padded to two
+    digits, and the hour drops one leading zero from three digits ("012" ->
+    "12", "000" -> "00") before being left-padded to two.
     """
-    # First strip whitespace vectorized
     stripped = pc.if_else(pc.is_null(column), "", pc.utf8_trim(column, " \t\r\n"))
 
-    # Check if any values need time normalization (have single-digit components)
-    # Use regex to find times that need padding: patterns like "H:MM:SS" or "H:M:S"
     needs_padding = pc.match_substring_regex(stripped, r"^\d{1,3}:\d{1,2}:\d{1,2}$")
     already_padded = pc.match_substring_regex(stripped, r"^\d{2,3}:\d{2}:\d{2}$")
     needs_fix = pc.and_(needs_padding, pc.invert(already_padded))
@@ -71,13 +73,15 @@ def _normalize_time_column(column: pa.Array) -> pa.Array:
     if not pc.any(needs_fix).as_py():
         return stripped
 
-    # Only process rows that need padding (much faster than processing all rows)
-    result = stripped.to_pylist()
-    needs_fix_list = needs_fix.to_pylist()
-    for i, fix in enumerate(needs_fix_list):
-        if fix:
-            result[i] = normalize_time(result[i])
-    return pa.array(result, type=pa.string())
+    parts = pc.extract_regex(stripped, r"^(?P<h>\d{1,3}):(?P<m>\d{1,2}):(?P<s>\d{1,2})$")
+    hours = pc.replace_substring_regex(pc.struct_field(parts, "h"), r"^0(\d\d)$", r"\1")
+    padded = pc.binary_join_element_wise(
+        pc.utf8_lpad(hours, width=2, padding="0"),
+        pc.utf8_lpad(pc.struct_field(parts, "m"), width=2, padding="0"),
+        pc.utf8_lpad(pc.struct_field(parts, "s"), width=2, padding="0"),
+        ":",
+    )
+    return pc.if_else(needs_fix, padded, stripped)
 
 
 def normalize_column(column: pa.Array, column_name: str) -> pa.Array:
