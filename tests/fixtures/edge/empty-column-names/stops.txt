@@ -1,0 +1,3 @@
+stop_id,stop_name,stop_lat,stop_lon,
+S2,Oak,40.1,-75.1,
+S1,Main,40.0,-75.0,x

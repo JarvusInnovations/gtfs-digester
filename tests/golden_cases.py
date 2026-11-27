@@ -60,6 +60,7 @@ EDGE_CASES = [
     "embedded-carriage-return",
     "empty-vs-null",
     "time-padding",
+    "empty-column-names",
 ]
 
 
