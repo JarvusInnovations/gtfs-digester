@@ -11,10 +11,21 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+        deps: [locked]
+        include:
+          # The golden digests depend on polars' CSV writer: run them against the
+          # newest polars and pyarrow too, so an upstream change is caught before
+          # a consumer resolves it.
+          - python-version: "3.13"
+            deps: latest
+    name: test (${{ matrix.python-version }}, ${{ matrix.deps }})
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --group dev
+        if: matrix.deps == 'locked'
+      - run: uv sync --group dev --upgrade
+        if: matrix.deps == 'latest'
       - run: uv run pytest tests/ -k "not Real" -v
